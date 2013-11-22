@@ -7,7 +7,7 @@ var continueShoppingUrl = "/index.html";
 
 // Amazon things you might need to set.
 // Note: the cart object will contain this value, but since the html page has it hardcoded, might as well hard code it here too.
-var amazonMerchantId = 'A2A17BDCREO3LJ';
+var amazonMerchantId = 'SELLERID';
 
 var restWrapper = new ultracart.Cart(merchantId, restUrl);
 var cart = null; // http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API#UltraCartRESTCheckoutAPI-Cart
