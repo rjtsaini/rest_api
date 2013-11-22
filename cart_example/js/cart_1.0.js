@@ -1,263 +1,509 @@
-//
-// READ ME FIRST!
-// To make this script work, you MUST set 3 variables
-// Search for merchantId, checkoutSite, remoteApiUrl (they're properties of the merchantCartConfig object)
-// Set these values appropriately.
-//
-// Please see:
-// http://docs.ultracart.com/display/ucdoc/Getting+Started+with+the+Javascript+Checkout
-// http://docs.ultracart.com/display/ucdoc/UltraCart+Advanced+JavaScript+Checkout+API
-// http://docs.ultracart.com/display/ucdoc/Introduction++%28JS+API+v2%29
-//
+// Things you need to set
+var merchantId = 'DEMO';
+var usingProxy = true;
+var proxyPath = './rest_proxy.php';
+var restUrl = usingProxy ? (proxyPath + "?_url=/rest") : "/rest";
+var continueShoppingUrl = "/index.html";
+
+// Amazon things you might need to set.
+// Note: the cart object will contain this value, but since the html page has it hardcoded, might as well hard code it here too.
+var amazonMerchantId = 'A2A17BDCREO3LJ';
+
+var restWrapper = new ultracart.Cart(merchantId, restUrl);
+var cart = null; // http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API#UltraCartRESTCheckoutAPI-Cart
+var shippingEstimates = null; // http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API#UltraCartRESTCheckoutAPI-ShippingEstimate
+
+var amazonIsReady = false; // set when the amazon widgets have loaded (if they're enabled).
+var loggedIntoAmazon = false; // the amazon checkout is "in page" vs. checkouts like PayPal which do redirects, so we
+// must keep track of whether we're doing an amazon checkout since the entire page changes.
+
+var templates = {};
+templates.cartItems = null;
+templates.coupons = null;
+templates.shippingMethods = null;
 
 
-// ===========================================================================
-// Merchant Configuration - Begin
-// Here is where merchant specific code should reside.
-// FOR A STANDARD IMPLEMENTATION, YOU WON'T NEED TO MODIFY ANYTHING BEYOND THIS BLOCK
-// ===========================================================================
-
-// these values affect the operation of code in this script.  They will impact what is displayed
-// and the validation rules enforced during checkout.  Please ensure the 'required' flags match
-// your cart configuration on the ultracart portal or customers will experience problems.
-var businessRules = {
-  emailRequired:true,               // if true, the customer must enter an email address
-  requireEmailConfirm:false,         // if true, a confirmation email field is displayed and required entry
-  requireBillingTitle:false,         // if true, the billing title field becomes a required field
-  requireShippingTitle:false,        // if true, the shipping title field is displayed
-  showBillingTitle:false,            // if true, the billing title field is displayed
-  showContinueShopping:false,
-  showCoupons:true,                 // if true, coupons and coupon entry are displayed
-  showEmail:true,                   // if true, email field is displayed
-  showEmailUpdates:true,            // if true, send me email updates checkbox is shown
-  showGoogleCheckout:true,          // if true, google checkout is shown, note, it may still be disabled (unavailable ) due to cart conditions or items like autoorders or certain coupons
-  // however, this setting means nothing if the cart flag says we're incompatible.  nothing to be done about that.  if that's so, no google checkout.
-  showItems:true,                   // if true, item table is displayed
-  showPayPalCheckout:true,          // if true, paypal checkout is shown
-  showShipFrom:true,                // if true, the 'orders shipped from is shown'
-  showShippingTitle:false,           // if true, the shipping title field is required.
-  showUpdateQuantity:true,         // if true, quantities are shown in edit fields and 'update quantity' link is displayed.
-  showRemoveItem:true,              // if true, trash can is displayed for each item allowing item to be removed from cart.
-  showUltraCartCheckout:true        // if true, ultracart checkout is shown
-};
-
-
-// these are development options.  none should be enabled during production!
-var devel = {
-  itemQuickAdd: true, // if true, adds a small div to add items to a cart.
-  bizRulesConfig: true // if true, shows the merchant cart configuration
-};
-
-
-// These values are passed to the UltraCart Checkout API
-// They affect the remote calls and cart behaviour.  While there may be some business rule
-// logic sprinkled in here, the dividing factor of whether a configuration option is included
-// in the businessRules or merchantCartConfig is whether the rule affects code in this script or the checkout api.
-var merchantCartConfig =
-{
-  merchantId: "DEMO",
-  screenBrandingThemeCode: 'DFLT', // doesn't affect these pages, but will determine how receipt and upsell pages appear.
-  isCheckoutPage: true, // if true, additional code is run during init() to populate shipping methods and such.  This must
-  // be true if you are collecting address information, displaying shipping, or finalizing an order.
-  checkoutSite: 'secure.ultracart.com', // this site is only used during checkout. You may omit this, and checkout will proceed to secure.ultracart.com
-  // if you provide a value, it must be an SSL alias that points to secure.ultracart.com (Custom SSL Certificate)
-  // if isCheckoutPage = false, this value doesn't matter.
-
-  // this url is used for all remote calls. Because of cross-site scripting restrictions, any remote call must point to the same server
-  // as this js file originated.  If you are running this within an ultracart catalog, use the first line (commented out by default)
-  // if you are running this on your own web server, use the second line (proxy.php).  YOU WILL NEED TO INSTALL proxy.php on your server!!
-  remoteApiUrl: location.protocol + "//" + location.hostname + "/cgi-bin/UCCheckoutAPIJSON",   // <== IF YOU ARE RUNNING THIS WITHIN AN ULTRACART CATALOG, USE THIS!!
-  //remoteApiUrl:  location.protocol + "//" + location.hostname + "/proxy.php",
-  debugMode: true,
-  verboseAjax: true,
-  addressPriority:'shipping', // if you're showing shipping fields and hiding billing, set to 'shipping', if you're showing billing fields and have a "My shipping address is different button", set to 'billing'
-  updateShippingOnAddressChange:true, // if this is true, shippingFields must be mapped below or no events will fire.
-  shippingCountries:['United States'],  // populates shipping country select.  if absent, remote call is made to get list configured in ultracart.  this is faster, but must be maintained.
-  billingCountries:['United States'],   // populates billing country select.  if absent, remote call is made to get list configured in ultracart.  this is faster, but must be maintained.
-  unifiedAffiliateTracking: true, // set this to true if you're using a custom ssl certificate (NOT secure.ultracart.com) and you have affiliates.
-  // when true, a script is dynamically insert into the head element. it in turn makes a call to the checkout site which does some cookie magic to unify affiliates
-  numberFormatConfig:{
-    hasCurrency:true,
-    currentPosition:ultraCart.numberFormat.LEFT_INSIDE,
-    currencySymbol:'$',
-    negativeFormat:ultraCart.numberFormat.LEFT_DASH,
-    roundToPlaces:2,
-    places:2,
-    truncate:false,
-    hasSeparators:true,
-    separatorValue:ultraCart.numberFormat.COMMA,
-    decimalValue:ultraCart.numberFormat.PERIOD
+//See http://josscrowcroft.github.com/accounting.js/ for documentation
+accounting.settings = {
+  currency: {
+    symbol: "$",   // default currency symbol is '$'
+    format: "%s%v", // controls output: %s = symbol, %v = value/number (can be object: see below)
+    decimal: ".",  // decimal point separator
+    thousand: ",",  // thousands separator
+    precision: 2   // decimal places
   },
-  listeners:{
-    // at first glance, cartready and cartchange look the same, but the cartready fires when ultraCart.init() finishes.  This method is here
-    // because init does so much, that numerous events would fire during it, causing renderers like summary to get called several times in a row.
-    "cartready":[renderCartVisibility, renderCartItems, renderSubtotal, renderCoupons, renderSummary, renderShipping, renderGoogleCheckout, renderPayPalCheckout], // "cartready" == ultraCart.events.EVENT_CART_READY
-    "cartchange":[renderCartVisibility, renderCartItems, renderSubtotal, renderCoupons, renderSummary, renderGoogleCheckout, renderPayPalCheckout], //  "cartchange" == ultraCart.events.EVENT_CART_CHANGE
-    "shippingchange":[renderSummary], // "shippingchange" == ultraCart.events.EVENT_SHIPPING_CHANGE
-    "addresschange":[],  //  "addresschange" == ultraCart.events.EVENT_ADDRESS_CHANGE
-    "shippingmethodschange":[renderShipping] // "shippingmethodschange" == ultraCart.events.EVENT_SHIPPING_METHODS_CHANGE
-  },
-  cartFieldMapping:{
-    shipToAddress1:"shippingAddress1",
-    shipToAddress2:"shippingAddress2",
-    shipToCity:"shippingCity",
-    shipToCompany:"shippingCompany",
-    shipToCountry:"shippingCountry",
-    shipToEveningPhone:null, // not mapped. I could delete this line, but it's left here to be explicit.
-    shipToFirstName:"shippingFirstName",
-    shipToLastName:"shippingLastName",
-    shipToPhone:"shippingPhone",
-    shipToPostalCode:"shippingZip",
-    //shipToResidential:"shippingResidential",
-    shipToState:"shippingState",
-    //shipToTitle:"shippingTitle",
-    email:"email",
-    billToAddress1:"billingAddress1",
-    billToAddress2:"billingAddress2",
-    billToCity:"billingCity",
-    billToCompany:"billingCompany",
-    billToCountry:"billingCountry",
-    billToDayPhone:"billingPhone",
-    //billToEveningPhone:"billingEveningPhone",
-    billToFirstName:"billingFirstName",
-    billToLastName:"billingLastName",
-    billToPostalCode:"billingZip",
-    billToState:"billingState",
-    //billToTitle:"billingTitle"
-
-    creditCardExpirationMonth:"creditCardExpMonth",
-    creditCardExpirationYear:"creditCardExpYear",
-    creditCardNumber:"creditCardNumber",
-    creditCardType:"creditCardType",
-    creditCardVerificationNumber:"creditCardVerificationNumber",
-
-    mailingListOptIn:"mailingList"
-
+  number: {
+    precision: 0,  // default precision on numbers is 0
+    thousand: ",",
+    decimal: "."
   }
 };
 
+// Demo Instructions
+// Items to Add: BONE, TSHIRT, PDF, item, P0975
+// Invalid Items (try): INVALIDITEM
+// Coupons to Add: AFA, 5OFF
+// Invalid Coupons (try): INVALIDCOUPON
+// Test Credit Card: Visa, 4444333322221111 (Any future exp date, CVV 123)
 
-/**
- * merchantOnReady is called after the cart is loaded and cart events have fired.  This is a place to perform gui customization.
- */
-function merchantOnReady() {
+var finalizing = false; // state variable to prevent double submissions
 
-  var c = ultraCart.getCart();
-  if (c != null) {
+jQuery(document).ready(function () {
 
-    // decide whether to show billing information.  first, toggle based on the checkbox,
-    // then look at the billing fields.  If any are populated, show them.
-    showHide(document.getElementById('billingDifferent'), 'billingTable');
-    if (c.billToAddress1 || c.billToAddress2 || c.billToCity || c.billToLastName || c.billToFirstName) {
-      jQuery('#billingDifferent').attr('checked', true);
-      jQuery('#billingTable').show();
-    }
-  }
+  var cartId = readCookie('UltraCartShoppingCartID');
 
-  jQuery('#shipFrom').toggle(businessRules.showShipFrom);
+  // load up all the templates that are needed for the page
+  templates.cartItems = Handlebars.compile(jQuery('#cart_items_template').html());
+  templates.coupons = Handlebars.compile(jQuery('#coupons_template').html());
+  templates.shippingMethods = Handlebars.compile(jQuery('#shipping_methods_template').html());
 
-  // each checkout field contains a span for adding a custom note.  here is a good place to add that note.
-  jQuery('#emailNote').html('(for order confirmation ONLY)<br />We Value Your Privacy');
+  jQuery(document).ajaxStart(
+          function () {
+            jQuery('.ajaxLoad').show();
+          }).ajaxStop(function () {
+            jQuery('.ajaxLoad').hide();
+          });
 
-  // assign popups to any popup links on the page.
-  jQuery('#cvv2popup').click(makePopup('https://secure.ultracart.com/checkout/cvv2/both.jsp', "scrollbars,resizable,toolbar,width=600,height=450,left=50,top=50"));
+  jQuery('#finalizeLink').click(function () {
+    finalizeOrder();
+  });
 
+  jQuery('.ucFormField').unbind('change').bind('change', copyElementValueToCart);
 
-  if (businessRules.hasOwnProperty('showItems') && !businessRules.showItems) {
-    jQuery('#cartItemsContainer').hide();
-  } else {
-    jQuery('#cartItemsContainer').show();
-  }
+  handleCheckoutErrors(); // if there were any returned from the server, such as CC declined, they'll be in the query parameters
 
+  // load the cart.
+  //noinspection JSUnusedLocalSymbols
+  restWrapper.getCart(cartId, {
+    success: function (result) {
+      window.cart = result;
+      refreshCart();
+      estimateShipping(); // this will call refreshShipping
+      createCookie('UltraCartShoppingCartID', cart.cartId, 14);
 
-  if (businessRules.showEmail) {
-    var emailContainer = jQuery('#emailContainer');
-    emailContainer.show();
-    if (businessRules.emailRequired) {
-      emailContainer.prepend('<span class="required">*</span>');
-    }
-
-    if (businessRules.requireEmailConfirm) {
-
-      // check for cookie with value since email confirm is not part of cart data.
-      var emailConfirm = readCookie('checkout_emailConfirm');
-      if (emailConfirm) {
-        jQuery('#emailConfirm').val(emailConfirm);
+      if (app.commonFunctions.pretendToBeUCEditor(cart)) {
+        updateCart(false);
       }
-      jQuery('#emailConfirmContainer').show();
-    } else {
-      jQuery('#emailConfirmContainer').hide();
+
+    },
+    failure: function (jqXHR, textStatus, errorThrown) {
+      var errorMsg = jqXHR.getResponseHeader('UC-REST-ERROR');
+      if (errorMsg) {
+        renderErrors([errorMsg]);
+      }
     }
+  });
 
+
+});
+
+
+// this is called by the amazon widget script when it's finished.  we'll track this to know we can show the buttons without issue
+function onAmazonLoginReady() {
+  amazonIsReady = true;
+}
+
+
+function updateCart(collectFieldsFirst) {
+
+  if (collectFieldsFirst) {
+    copyAllElementValuesToCart();
   }
 
-  var shippingTitle = jQuery('#shippingTitleContainer');
-  if (businessRules.showShippingTitle) {
-    shippingTitle.show();
-    if (businessRules.requireShippingTitle) {
-      shippingTitle.prepend('<span class="required">*</span>');
+  //noinspection JSUnusedLocalSymbols
+  restWrapper.updateCart(cart, {
+    success: function (updatedCart) {
+      cart = updatedCart;
+      refreshCart();
+      refreshShipping();
+    },
+    failure: function (jqXHR, textStatus, errorThrown) {
+      var errorMsg = jqXHR.getResponseHeader('UC-REST-ERROR');
+      if (errorMsg) {
+        renderErrors([errorMsg]);
+      }
     }
-  } else {
-    shippingTitle.hide();
-  }
-
-  var billingTitle = jQuery('#billingTitleContainer');
-  if (businessRules.showBillingTitle) {
-    billingTitle.show();
-    if (businessRules.requireBillingTitle) {
-      billingTitle.prepend('<span class="required">*</span>');
-    }
-  } else {
-    billingTitle.hide();
-  }
-
-  if (businessRules.hasOwnProperty('showUpdateQuantity') && !businessRules.showUpdateQuantity) {
-    jQuery('#updateQuantityContainer').hide();
-  } else {
-    jQuery('#updateQuantityContainer').show();
-  }
-
-  if (businessRules.showRemoveItem) {
-    jQuery('#removeItemHeader').show();
-  } else {
-    jQuery('#removeItemHeader').hide();
-  }
-
-  if (businessRules.showContinueShopping) {
-    jQuery('#continueShoppingContainer').show();
-  } else {
-    jQuery('#continueShoppingContainer').hide();
-  }
-
-  if (businessRules.showCoupons) {
-    jQuery('#couponContainer').show();
-  } else {
-    jQuery('#couponContainer').hide();
-  }
+  });
+}
 
 
-  if (businessRules.showUltraCartCheckout) {
+function refreshCart() {
+
+  // ------------------------------------------------------------
+  // Overall Cart Visibility
+
+  if (cart != null && cart.items && cart.items.length > 0) {
+    jQuery('#emptyCart').hide();
+    jQuery('#shoppingCart').show();
     jQuery('#ucUltraCartCheckoutSection').show();
   } else {
-    jQuery('#ucUltraCartCheckoutSection').hide();
+    renderEmptyCart();
+    jQuery('#emptyCart').show(); // should already be visible
+    jQuery('#shoppingCart').hide(); // should already be hidden
   }
 
-  renderCartVisibility();
+  // ------------------------------------------------------------
+  // Server Errors
+  if (cart && cart.errors && cart.errors.length) {
+    renderErrors(cart.errors);
+  }
 
-  // the only way I'm going to get shipping updates with billing priority
-  if (merchantCartConfig.addressPriority == 'billing') {
+
+  // ------------------------------------------------------------
+  // Billing/Shipping Same Checkbox
+
+  // decide whether to show billing information.  first, toggle based on the checkbox,
+  // then look at the billing fields.  If any are populated, show them.
+  showHide(document.getElementById('billingDifferent'), 'billToTable');
+  if (cart.billToAddress1 || cart.billToAddress2 || cart.billToCity || cart.billToLastName || cart.billToFirstName || cart.billToState || cart.billToCountry || cart.billToCompany || cart.billToDayPhone) {
+    jQuery('#billingDifferent').attr('checked', true);
+    jQuery('#billToTable').show();
+  }
+
+
+  // ------------------------------------------------------------
+  // Cart Fields
+  jQuery('.ucFormField').each(function (idx, el) {
+    jQuery(el).val(cart[el.id]);
+  });
+
+
+  // ------------------------------------------------------------
+  // Cart Items
+
+  if (cart != null) {
+    var cartItems = cart.items;
+    var cartItemsBody = jQuery('#cartItemsBody').html(''); //clear out cart and keep reference for later
+
+    // create the objects for the template
+    var items = [];
+    for (var i = 0; i < cartItems.length; i++) {
+      var item = {};
+      item.amount = accounting.formatMoney((cartItems[i].quantity * cartItems[i].unitCostWithDiscount));
+      item.image = getCartItemImg(cartItems[i]);
+      item.itemId = cartItems[i].itemId;
+      item.quantity = cartItems[i].quantity;
+      item.description = cartItems[i].description;
+      item.position = i;
+      items.push(item);
+    }
+
+    var itemsContext = {items: items};
+    var itemsHtml = templates.cartItems(itemsContext);
+    cartItemsBody.html(itemsHtml);
 
   }
 
-  if (devel.itemQuickAdd) {
-    renderItemQuickAdd();
+
+  // ------------------------------------------------------------
+  // Coupons
+
+  var couponHtml = '';
+  if (cart != null && cart.coupons && cart.coupons.length) {
+    var coupons = [];
+    for (var j = 0; j < cart.coupons.length; j++) {
+      // we just need the code.
+      coupons.push(cart.coupons[j].couponCode);
+    }
+
+    var couponsContext = {coupons: coupons};
+    couponHtml = templates.coupons(couponsContext);
+  }
+  jQuery('#couponsApplied').html(couponHtml);
+  jQuery('#couponContainer').show();
+
+
+  // ------------------------------------------------------------
+  // Summary
+  refreshSummary();
+
+
+  // ------------------------------------------------------------
+  // Subtotal
+  if (cart != null) {
+    if (cart.subtotalDiscount == 0) {
+      jQuery('#subtotal1').hide();
+      jQuery('#subtotal_label1').hide();
+      jQuery('#discount1').hide();
+      jQuery('#discount_label1').hide();
+    } else {
+      jQuery('#subtotal1').show().html(accounting.formatMoney(cart.subtotal));
+      jQuery('#subtotal_label1').show();
+      jQuery('#discount1').show().html(accounting.formatMoney(cart.subtotalDiscount));
+      jQuery('#discount_label1').show();
+    }
+    jQuery('#subtotal2').html(accounting.formatMoney(cart.subtotalWithDiscount));
   }
 
-  if (devel.bizRulesConfig) {
-    renderBizRulesConfig();
+
+  var showConjunction = false; // if we have an alternate payment, we want to show the conjunction phrase "or use the secure order form below"
+
+  // ------------------------------------------------------------
+  // PayPal
+
+  // unbind here and rebind to avoid stacking event handlers
+  var payPalLink = jQuery('.paypal_link');
+  payPalLink.unbind('.ultraCart').removeClass('fake_hyper');
+
+  // if we're using amazon, don't show PayPal.
+  if (cart != null) {
+
+    // biz rules can override the cart settings to hide paypal checkout,
+    // but it cannot show if the cart says no.  end of story.
+    if (cart.hasPayPal && cart.amazonOrderReferenceId == null && !loggedIntoAmazon) {
+      jQuery('#ucPayPalCheckoutSection').show();
+      showConjunction = true;
+    } else {
+      jQuery('#ucPayPalCheckoutSection').hide();
+
+    }
+
+    // show the image no matter what.  it will show disabled if need be.
+    // but only put in the click event if the cart is compatible.
+
+    var paypalImage = jQuery('#paypalImage');
+    if (cart.payPalButtonUrl && (paypalImage.attr('src') != cart.payPalButtonUrl)) {
+      paypalImage.attr('src', cart.payPalButtonUrl);
+      paypalImage.attr('alt', cart.payPalButtonAltText);
+    }
+
+    if (cart.payPalCompatible) {
+      payPalLink.bind('click.ultraCart', payPalCheckout).addClass('fake_hyper');
+    }
+  }
+
+
+  // ------------------------------------------------------------
+  // Amazon Section
+  if (cart != null) {
+
+    if (cart.hasAmazon && amazonIsReady) {
+
+      if(loggedIntoAmazon){
+        jQuery('#AmazonNote').html("<button onclick='stopUsingPayWithAmazon()'>Stop Using Pay with Amazon</button>");
+      } else {
+        showAmazonButton(cart.amazonButtonUrl);
+        jQuery("#AmazonPayButton").show();
+        if(cart.amazonOrderReferenceId){
+          jQuery('#AmazonNote').html("<em>Please login to Amazon again to continue.</em>");
+        }
+      }
+
+
+    } else {
+      jQuery("#AmazonPayButton,#AmazonNote").hide();
+    }
+
+
+  }
+
+
+  if (showConjunction && cart.amazonOrderReferenceId == null) {
+    jQuery('#ucPaymentConjunction').show();
+  } else {
+    jQuery('#ucPaymentConjunction').hide();
+  }
+
+
+  // finally, if we're in an Amazon transaction, make sure these sections are also hidden
+  if(cart.amazonOrderReferenceId != null){
+    jQuery('#creditCardContainer,#billingDifferentContainer,.addressSection').hide();
+  } else {
+    jQuery('#creditCardContainer,#billingDifferentContainer,.addressSection').show();
+  }
+
+
+
+  // assign popups to any popup links on the page.
+  jQuery('#cvv2popup').unbind().bind('click', makePopup('https://secure.ultracart.com/checkout/cvv2/both.jsp', "scrollbars,resizable,toolbar,width=600,height=450,left=50,top=50"));
+}
+
+
+function showAmazonButton(buttonUrl) {
+  jQuery('#AmazonPayButton').html(
+          '<' + 'img src="' + buttonUrl + '?sellerId=' + amazonMerchantId + '&size=large&color=orange" style="cursor: pointer;"/>'
+  );
+
+
+  //noinspection JSUnusedGlobalSymbols
+  new OffAmazonPayments.Widgets.Button({
+    sellerId: amazonMerchantId,
+    useAmazonAddressBook: true,
+    onSignIn: function (orderReference) {
+      loggedIntoAmazon = true;
+      jQuery('#AmazonPayButton').hide();
+      jQuery('#AmazonNote').html(''); // do this here so that the refresh doesn't slam the note to the left before hiding it.
+      disableFinalizeButton();
+      cart.amazonOrderReferenceId = orderReference.getAmazonOrderReferenceId();
+      cart.paymentMethod = "Amazon";
+
+      showAmazonAddress();
+      updateCart(); // this will trigger a refresh which will show the address and wallet.
+
+    },
+    onError: function (error) {
+      renderErrors([error]);
+    }
+  }).bind("AmazonPayButton");
+
+}
+
+
+function showAmazonAddress() {
+
+  //noinspection JSUnusedGlobalSymbols
+  new OffAmazonPayments.Widgets.AddressBook({
+    sellerId: amazonMerchantId,
+    amazonOrderReferenceId: cart.amazonOrderReferenceId,
+    onAddressSelect: function (orderReference) {
+      estimateShipping();
+      showAmazonWallet();
+    },
+    design: {
+      size: {width: '400px', height: '260px'}
+    },
+    onError: function (error) {
+      renderError([error]);
+    }
+  }).bind("AddressBookWidgetDiv");
+
+}
+
+function showAmazonWallet() {
+  //noinspection JSUnusedGlobalSymbols
+  new OffAmazonPayments.Widgets.Wallet({
+    sellerId: amazonMerchantId,
+    amazonOrderReferenceId: cart.amazonOrderReferenceId,
+    design: {
+      size: {width: '400px', height: '260px'}
+    },
+    onPaymentSelect: function (orderReference) {
+      enableFinalizeButton();
+    },
+    onError: function (error) {
+      console.log(error);
+    }
+  }).bind("AmazonWalletWidgetDiv");
+
+}
+
+
+function stopUsingPayWithAmazon(){
+  cart.amazonOrderReferenceId = null;
+  loggedIntoAmazon = false;
+  jQuery('#AddressBookWidgetDiv,#AmazonWalletWidgetDiv,#AmazonNote').html('');
+  updateCart();
+}
+
+
+function enableFinalizeButton() {
+  jQuery('#finalizeButton').attr('disabled', false);
+}
+
+function disableFinalizeButton() {
+  jQuery('#finalizeButton').attr('disabled', true);
+}
+
+
+function copyAllElementValuesToCart() {
+  jQuery('.ucFormField').each(function (idx, el) {
+    cart[el.id] = jQuery(el).val();
+  });
+
+  if (!jQuery('#billingDifferent').is(":checked")) {
+    cart.billToLastName = cart.shipToLastName;
+    cart.billToFirstName = cart.shipToFirstName;
+    cart.billToCompany = cart.shipToCompany;
+    cart.billToAddress1 = cart.shipToAddress1;
+    cart.billToAddress2 = cart.shipToAddress2;
+    cart.billToCity = cart.shipToCity;
+    cart.billToState = cart.shipToState;
+    cart.billToCountry = cart.shipToCountry;
+    cart.billToDayPhone = cart.shipToPhone;
+    cart.billToPostalCode = cart.shipToPostalCode;
   }
 
 }
+
+function copyElementValueToCart(event) {
+  var fieldName = event.target.id;
+  cart[fieldName] = jQuery.trim(jQuery(event.target).val());
+
+  // if this is the credit card number, save it to UltraCart without going through the proxy.
+  // This eliminates the risk of cards being captured via a compromised server.
+  if (fieldName == 'creditCardNumber') {
+    app.commonFunctions.storeCard(cart, function () {
+      jQuery('#creditCardNumber').val(cart.creditCardNumber);
+    });
+  }
+
+  if (jQuery(event.target).hasClass('affectsShippingEstimate')) {
+    if (haveEnoughFieldsToEstimateShipping()) {
+      estimateShipping();
+    }
+  }
+
+}
+
+
+function haveEnoughFieldsToEstimateShipping() {
+  var result = false;
+  if (cart != null) {
+    // if these fields are populated, estimate the shipping
+    result = cart.shipToCity && cart.shipToPostalCode && cart.shipToState && cart.shipToCountry;
+  }
+
+  return result;
+}
+
+
+function estimateShipping() {
+
+  //noinspection JSUnusedLocalSymbols
+  restWrapper.estimateShipping(cart, {
+    success: function (availableShippingMethods) {
+      shippingEstimates = availableShippingMethods;
+
+      // if a shipping method hasn't been selected, select it now.  It will save grief later.
+      if(!cart.shippingMethod && shippingEstimates && shippingEstimates.length){
+        cart.shippingMethod = shippingEstimates[0].name;
+        cart.shippingHandling = shippingEstimates[0].cost;
+      }
+
+      refreshShipping();
+      refreshSummary();
+    },
+    failure: function (jqXHR, textStatus, errorThrown) {
+      var errorMsg = jqXHR.getResponseHeader('UC-REST-ERROR');
+      if (errorMsg) {
+        renderErrors([errorMsg]);
+      }
+    }
+
+  });
+}
+
+
+function refreshShipping() {
+  var choice = getShippingChoice();
+
+  // unbind any existing options before overwriting to avoid leaks.
+  //noinspection JSJQueryEfficiency
+  jQuery('[name=shippingMethod]').unbind('.ultraCart');
+
+  var html = '';
+  if (shippingEstimates && shippingEstimates.length) {
+    // the shipping estimate object works without modification for our shipping estimate template,
+    // so instead of create a copy of the array, I'll just use the estimates directly in the template.
+    html = templates.shippingMethods({'shippingMethods': shippingEstimates});
+  }
+
+  jQuery('#shippingMethods').html(html).bind('click.ultraCart', chooseShipping);
+  if (choice) {
+    jQuery("[name=shippingMethod][value='" + choice.name + "']").attr('checked', 'checked');
+  }
+}
+
 
 /**
  * behavior to take when email is required.
@@ -284,11 +530,6 @@ function alertEmailConfirmMismatch() {
 
 
 // ===========================================================================
-// Merchant Configuration - End
-// ===========================================================================
-
-
-// ===========================================================================
 // Render Functions
 // Merchant: If you can your page layout, these will need
 // to change accordingly.
@@ -296,288 +537,83 @@ function alertEmailConfirmMismatch() {
 
 
 /**
- * toggles the overall visibility of the cart.  if there are no more items,
- * we should display a 'cart is empty, continue shopping message of some kind.
- */
-function renderCartVisibility() {
-  var c = ultraCart.getCart();
-  if (c != null && c.items && c.items.length > 0) {
-    jQuery('#emptyCart').hide();
-    jQuery('#shoppingCart').show();
-  } else {
-    renderEmptyCart();
-    jQuery('#emptyCart').show(); // should already be visible
-    jQuery('#shoppingCart').hide(); // should already be hidden
-  }
-}
-
-
-/**
  * this is what's displayed when the cart is empty.  you could have a beautiful div and toggle visibility
  * instead, if you want.  totally customizable.
  */
 function renderEmptyCart() {
-  jQuery('#emptyCart').html('<h4>Your cart is currently empty.</h4><p>Use the Quick Add link above to add product to the cart.  Try "BONE", "PDF", "item", "P0975", or "TSHIRT"</p>');
-}
-
-
-/**
- * updates the main item table
- */
-function renderCartItems() {
-  var cartItems = ultraCart.getCart().items;
-  var editQty = true;
-  var removeItem = false;
-  if (businessRules.hasOwnProperty('showUpdateQuantity') && !businessRules.showUpdateQuantity) {
-    editQty = false;
-  }
-  if (businessRules.showRemoveItem) {
-    removeItem = true;
-  }
-
-  jQuery('#cartItemsBody').html(''); //clear out cart
-  for (var i = 0; i < cartItems.length; i++) {
-    renderCartItem(cartItems[i], i, editQty, removeItem);
-  }
-}
-
-
-/**
- * adds a cart item to the table
- * @param cartItem item to add
- * @param position is needed for some of the event methods.
- */
-function renderCartItem(cartItem, position, editQty, removeItem) {
-  var parent = jQuery('#cartItemsBody');
-
-  var amt = cartItem.quantity * cartItem.unitCostWithDiscount;
-
-  var html = "<tr><td class='item_thumbnail'>" + getCartItemImg(cartItem)
-      + "<\/td><td class='item_id'>"
-      + cartItem.itemId
-      + "<\/td><td class='item_qty'>";
-
-  if (editQty) {
-    html += "<input type='text' name='cartItemQty' size='3' maxlength='5' value='" +
-        + cartItem.quantity
-        + "'/>";
-  } else {
-    html += cartItem.quantity;
-  }
-
-  html += "<\/td><td class='item_desc'>"
-      + cartItem.description
-      + "<\/td><td class='item_amt'>"
-      + nf.toCurrency(amt)
-      + "<\/td><td class='item_remove'>";
-
-  if (removeItem) {
-    html += "<span on" + "click='removeItem("
-        + position
-        + ")' class='remove_link' title='remove item'><img src='images/trash.png' alt='remove item'/></span>";
-  } else {
-    html += '&nbsp;';
-  }
-
-  html += "<\/td><\/tr>";
-
-  parent.append(html);
-
-}
-
-
-/**
- * renders the coupons that are applied to the current transaction
- */
-function renderCoupons() {
-  var coupons = ultraCart.getCart().coupons;
-
-  var html = '';
-  if (coupons.length > 0) {
-    html += "<div class='couponHeader'>Applied Coupons:</div>";
-    for (var i = 0; i < coupons.length; i++) {
-      var coupon = coupons[i];
-      html += "<div><span style='float:left;vertical-align:middle'>" + coupon.couponCode + "</span><span class='coupon_link' on" + "click='removeCoupon(\"" + coupon.couponCode + "\")'><img src='images/delete_coupon.png' alt='remove coupon' style='float:left;vertical-align:middle' /><\/span><\/div>";
-    }
-  }
-
-  var couponsApplied = jQuery('#couponsApplied');
-  couponsApplied.html(html);
-}
-
-
-function renderShipping() {
-  var c = ultraCart.getCart();
-  var choice = ultraCart.getShippingChoice();
-  var methods = ultraCart.getShippingMethods();
-
-  // if no default, select the first one.  should be the cheapest.
-  if (!choice && methods && methods.length) {
-    choice = methods[0].name;
-  }
-
-  // unbind any existing options before overwriting to avoid leaks.
-  jQuery('[name=shippingMethod]').unbind('.ultraCart');
-
-  if (methods) {
-    var html = '';
-    for (var i = 0; i < methods.length; i++) {
-      var checked = (choice && choice.name && methods[i].name && choice.name == methods[i].name);
-
-      html += "<div class='shippingMethod'>";
-      html += "<div class='shippingName'>";
-      html += "<input class='shippingField' name='shippingMethod' type='radio' value='" + methods[i].name + "' " + (checked ? "checked='checked'" : "") + " />";
-      html += methods[i].displayName;
-      html += "<\/div><div class='shippingPrice'>";
-      html += nf.toCurrency(methods[i].cost);
-      html += "<\/div><div style='clear:both'></div></div>";
-    }
-  }
-
-  jQuery('#shippingMethods').html(html);
-  jQuery('[name=shippingMethod]').bind('click.ultraCart', chooseShipping);
-
+  jQuery('#emptyCart').html('<h4>Your cart is currently empty.  Please click here to continue shopping.</h4>');
 }
 
 
 /**
  * updates the summary block showing subtotal, tax, shipping, and total
  */
-function renderSummary() {
-  var c = ultraCart.getCart();
-  if (c.items.length == 0) {
+function refreshSummary() {
+
+  if (cart == null || !cart.items || !cart.items.length) {
     jQuery('#summaryContainer').hide();
     return;
-  } else {
-    jQuery('#summaryContainer').show();
   }
+
+  //noinspection JSJQueryEfficiency
+  jQuery('#summaryContainer').show();
 
   // shipping must be dealt with specially.  to prevent customers from gaming the system, there are several instances
   // where the price of shipping is reset.  So, when rendering, always lookup the shipping method and calculate the cost
   // from that rather than using the cart.shippingHandlingWithDiscount, although the latter would be simpler
 
-  var totalTax = c.tax;
+  var totalTax = cart.tax;
   var shippingTotal = '&nbsp;'; // don't display anything if there's no choice
-  var total = c.subtotalWithDiscount + c.tax;
+  var total = cart.subtotalWithDiscount + cart.tax;
 
-  var shippingChoice = ultraCart.getShippingChoice();
+  var shippingChoice = getShippingChoice();
   if (shippingChoice) {
     totalTax += shippingChoice.tax;
     if (shippingChoice.cost == 0) {
       shippingTotal = '<strong>FREE Shipping!</strong>';
     } else {
-      shippingTotal = nf.toCurrency(shippingChoice.cost);
+      shippingTotal = accounting.formatMoney(shippingChoice.cost);
     }
     total += shippingChoice.cost;
     total += shippingChoice.tax;
   }
 
-
-  jQuery('#summarySubtotal').html("<div class='summaryLabel'>Subtotal:<\/div><div class='summaryField'>" + nf.toCurrency(c.subtotalWithDiscount) + "<\/div>");
-  jQuery('#summaryTax').html("<div class='summaryLabel'>Tax:<\/div><div class='summaryField'>" + (totalTax == 0 ? "<span class='tax'>No Sales Tax!</span>" : nf.toCurrency(totalTax)) + "<\/div>");
+  jQuery('#summarySubtotal').html("<div class='summaryLabel'>Subtotal:<\/div><div class='summaryField'>" + accounting.formatMoney(cart.subtotalWithDiscount) + "<\/div>");
+  jQuery('#summaryTax').html("<div class='summaryLabel'>Tax:<\/div><div class='summaryField'>" + (totalTax == 0 ? "<span class='tax'>No Sales Tax!</span>" : accounting.formatMoney(totalTax)) + "<\/div>");
   jQuery('#summaryShipping').html("<div class='summaryLabel'>Shipping:<\/div><div class='summaryField'>" + shippingTotal + "<\/div>");
-  jQuery('#summaryTotal').html("<div class='summaryLabel'>Total:<\/div><div class='summaryField'>" + nf.toCurrency(total) + "<\/div>");
+  jQuery('#summaryTotal').html("<div class='summaryLabel'>Total:<\/div><div class='summaryField'>" + accounting.formatMoney(total) + "<\/div>");
 }
 
 
 /**
- * Updates the subtotal at the end of the main item table that shows the subtotal details (including discounts)
+ * see what the customer has selected for shipping choice.  check to make sure it's still a valid choice, since
+ * the choice may not still be available.
+ * See: http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API#UltraCartRESTCheckoutAPI-ShippingEstimate
+ * @return a shippingEstimate object or null
  */
-function renderSubtotal() {
-  var c = ultraCart.getCart();
-  if (c.subtotalDiscount == 0) {
-    jQuery('#subtotal1').hide();
-    jQuery('#subtotal_label1').hide();
-    jQuery('#discount1').hide();
-    jQuery('#discount_label1').hide();
-  } else {
-    jQuery('#subtotal1').show().html(nf.toCurrency(c.subtotal));
-    jQuery('#subtotal_label1').show();
-    jQuery('#discount1').show().html(nf.toCurrency(c.subtotalDiscount));
-    jQuery('#discount_label1').show();
-  }
-  jQuery('#subtotal2').html(nf.toCurrency(c.subtotalWithDiscount));
-}
+function getShippingChoice() {
 
+  var result = null;
 
-function renderGoogleCheckout() {
-
-  // unbind here and rebind to avoid stacking event handlers
-  jQuery('.google_link').unbind('.ultraCart').removeClass('fake_hyper');
-
-  var cart = ultraCart.getCart();
-
-
-  // biz rules can override the cart settings to hide google checkout,
-  // but it cannot show if the cart says no.  end of story.
-  if (businessRules.showGoogleCheckout && cart && cart.hasGoogleCheckout) {
-    jQuery('#ucGoogleCheckoutSection').show();
-
-    if (businessRules.showPayPalCheckout && cart.hasPayPal && cart.payPalCompatible) {
-      jQuery('#ucGoogleConjunction1').show();
-      jQuery('#ucGoogleConjunction2').hide();
-    } else if (businessRules.showUltraCartCheckout) {
-      jQuery('#ucGoogleConjunction2').show();
-    }
-  } else {
-    jQuery('#ucGoogleCheckoutSection').hide();
-    jQuery('#ucGoogleConjunction1').hide();
-    jQuery('#ucGoogleConjunction2').hide();
-  }
-
-
-  if (cart && businessRules.showGoogleCheckout) {
-
-    // show the image no matter what.  it will show disabled if need be.
-    // but only put in the click event if the cart is compatible.
-
-    var googleImage = jQuery('#googleImage');
-    if (cart.googleCheckoutButtonUrl && (googleImage.attr('src') != cart.googleCheckoutButtonUrl)) {
-      googleImage.attr('src', cart.googleCheckoutButtonUrl);
-      googleImage.attr('alt', cart.googleCheckoutButtonAltText);
-    }
-
-    if (cart.googleCheckoutCompatible) {
-      jQuery('.google_link').bind('click.ultraCart', googleCheckout).addClass('fake_hyper');
+  if (cart != null) {
+    var selectedMethod = cart.shippingMethod;
+    if (selectedMethod && shippingEstimates && shippingEstimates.length) {
+      for (var i = 0; i < shippingEstimates.length; i++) {
+        if (selectedMethod == shippingEstimates[i].name) {
+          result = shippingEstimates[i];
+        }
+      }
     }
   }
-}
 
-
-function renderPayPalCheckout() {
-
-  // unbind here and rebind to avoid stacking event handlers
-  jQuery('.paypal_link').unbind('.ultraCart').removeClass('fake_hyper');
-
-  var cart = ultraCart.getCart();
-
-  // biz rules can override the cart settings to hide paypal checkout,
-  // but it cannot show if the cart says no.  end of story.
-  if (businessRules.showPayPalCheckout && cart && cart.hasPayPal) {
-    jQuery('#ucPayPalCheckoutSection').show();
-    if (businessRules.showUltraCartCheckout) {
-      jQuery('#ucPayPalConjunction').show();
-    }
-  } else {
-    jQuery('#ucPayPalCheckoutSection').hide();
-    jQuery('#ucPayPalConjunction').hide();
-  }
-
-  if (cart && businessRules.showPayPalCheckout) {
-
-    // show the image no matter what.  it will show disabled if need be.
-    // but only put in the click event if the cart is compatible.
-
-    var paypalImage = jQuery('#paypalImage');
-    if (cart.payPalButtonUrl && (paypalImage.attr('src') != cart.payPalButtonUrl)) {
-      paypalImage.attr('src', cart.payPalButtonUrl);
-      paypalImage.attr('alt', cart.payPalButtonAltText);
-    }
-
-    if (cart.payPalCompatible) {
-      jQuery('.paypal_link').bind('click.ultraCart', payPalCheckout).addClass('fake_hyper');
+  if (result == null) {
+    // try to get the first choice, which is always the cheapest.
+    if (shippingEstimates && shippingEstimates.length) {
+      result = shippingEstimates[0];
     }
   }
+
+  return result;
 }
 
 
@@ -611,55 +647,14 @@ function renderErrors(errors) {
   return true;
 }
 
-// ===========================================================================
-// Render Functions - End
-// ===========================================================================
-
-
-// ===========================================================================
-// Startup Code.
-// Here is the code which initializes the cart, and the few global cart objects
-// ===========================================================================
-
-var nf = ultraCart.numberFormat; // for formatting currency
-var finalizing = false; // state variable to prevent double submissions
-
-jQuery('document').ready(function() {
-
-  jQuery(document).ajaxStart(
-      function() {
-        jQuery('.ajaxLoad').show();
-      }).ajaxStop(function() {
-        jQuery('.ajaxLoad').hide();
-      });
-
-  jQuery('#finalizeLink').click(function() {
-    finalizeOrder();
-  });
-
-  ultraCart.init(merchantCartConfig);
-
-  merchantOnReady();
-  handleCheckoutErrors(); // if there were any.
-
-});
-
-// ===========================================================================
-// Startup Code - End
-// ===========================================================================
-
-
-// ===========================================================================
-// Business/Cart Logic.
-// Here is the code provides and manages the customer/page events
-// ===========================================================================
-
-
 /**
  * checks for any errors returned from the finalize method and displays them
  */
 function handleCheckoutErrors() {
-  renderErrors(ultraCart.util.getParameterValues('ucError'));
+
+  var params = app.commonFunctions.parseHttpParameters();
+  var serverErrors = params['ucError'];
+  renderErrors(serverErrors);
 }
 
 
@@ -667,8 +662,6 @@ function handleCheckoutErrors() {
  * updates the cart and hands off to the checkout.
  */
 function finalizeOrder(checkoutMethod) {
-
-  // this flag prevents users from clicking the finalize button more than once
   if (!finalizing) {
 
     // set to prevent multiple submissions
@@ -677,99 +670,46 @@ function finalizeOrder(checkoutMethod) {
     // reset any errors
     jQuery('.field_container_error').removeClass('field_container_error');
 
-    // if email is required, then validate it, and warn if errors
-    if (businessRules.emailRequired) {
-
-      // keep it simple.  server side does the exhaustive email check.
-      var email = jQuery('#email').val();
-      if (!email || email.indexOf('@') < 0) {
-        alertEmailRequired(); // show an alert box, etc.
-        finalizing = false;
-        return;
-      }
-
-      // same for the confirmation email.
-      if (businessRules.requireEmailConfirm) {
-        var emailConfirm = jQuery('#emailConfirm').val();
-        if (!emailConfirm) {
-          alertEmailConfirmRequired(); // show an alert box, etc.
-          finalizing = false;
-          return;
-        } else if (email != emailConfirm) {
-          alertEmailConfirmMismatch(); // show an alert box, etc.
-          finalizing = false;
-          return;
-        }
-
-
-        // email confirmation is not stored by the cart.
-        // save it to cookie for page reloads or customer will have to re-enter
-        createCookie('checkout_emailConfirm', emailConfirm, 1);
-      }
+    var waitDiv = document.getElementById('pleaseWait');
+    if (waitDiv) {
+      waitDiv.scrollIntoView();
     }
 
-    //document.getElementById('pleaseWait').scrollIntoView();
-    // change the button to a spinner
-    jQuery('#finalizeLink').html("<img src='images/ajax-loader.gif' alt='Please Wait' title='Please Wait' />");
-
-    if (!checkoutMethod || checkoutMethod == ultraCart.checkouts.CHECKOUT_ULTRACART) {
-      // unless this is set somewhere else, make sure we have the default set.
-      ultraCart.getCart().paymentMethod = 'Credit Card';
+    if(checkoutMethod){
+      cart.paymentMethod = checkoutMethod;
+    } else if(!cart.paymentMethod){
+      cart.paymentMethod = 'Credit Card';
     }
 
-    // save all the field elements one last time
-    ultraCart.saveFieldElements(function () {
-      // when the save finishes, initiate the checkout.  do it asynchronously
-      ultraCart.checkout(checkoutMethod || ultraCart.checkouts.CHECKOUT_ULTRACART, {async:true, onComplete:function(result) {
-        // if the post is accepted, redirectToUrl will be populated.  This doesn't mean everything was successfully,
-        // only that basic validation passed.  If there's any error, then the 'please wait' page will redirect back to this page
-        // and the error parameter will be displayed.  By using ultraCart.checkout(), the default error parameter name of 'ucError' is used.
-        // see handleCheckoutErrors()
-        if (result.redirectToUrl) {
-          ultraCart.util.postGet(result.redirectToUrl); // post instead of redirect to discourage back button use.
+    copyAllElementValuesToCart();
 
-          // if the validation failed, then show errors and reset the finalize button.
-        } else if (result.errors) {
+    restWrapper.checkout(cart, {
+      success: function (checkoutResponse) {
+        if (checkoutResponse.redirectToUrl) {
+          location.href = checkoutResponse.redirectToUrl;
+        } else if (checkoutResponse.errors) {
           finalizing = false;
-          jQuery('#finalizeLink').html("<img src='images/finalizeOrder.gif' alt='Finalize Order'/>");
-          renderErrors(result.errors);
-
-          // ?? this else block should never execute.
+          renderErrors(checkoutResponse.errors);
         } else {
           finalizing = false;
+          // ?? this should never happen.
         }
-      }})
-    });
-  }
-}
 
-function googleCheckout() {
-  return finalizeOrder(ultraCart.checkouts.CHECKOUT_GOOGLE);
+      },
+      failure: function (jqXHR, textStatus, errorThrown) {
+        var errorMsg = jqXHR.getResponseHeader('UC-REST-ERROR');
+        if (errorMsg) {
+          renderErrors([errorMsg]);
+        }
+      }
+    });
+
+
+  } //end-if not finalizing
 }
 
 function payPalCheckout() {
-  return finalizeOrder(ultraCart.checkouts.CHECKOUT_PAYPAL);
-}
-
-
-/**
- * adding items isn't typically done on a checkout, but this is here for handling
- * any related items offering and perhaps a future 'undo' tied to the removeItem
- * @param item itemId to add
- * @param qty item quantity
- */
-function addItem(item, qty) {
-  renderErrors(ultraCart.addItems([
-    {itemId:item,quantity:qty}
-  ]));
-}
-
-
-/**
- * provided in case you wish to offer a 'cancel my order' link
- */
-function clearCart() {
-  renderErrors(ultraCart.clearItems());
+  return finalizeOrder('PayPal');
 }
 
 
@@ -778,9 +718,13 @@ function clearCart() {
  * @param position the position in the list of items
  */
 function removeItem(position) {
-  var cartItems = ultraCart.getCart().items;
-  var item = cartItems[position];
-  renderErrors(ultraCart.removeItem(item.itemId));
+  cart.items.splice(position, 1);
+  updateCart(true);
+}
+
+
+function continueShopping() {
+  location.href = continueShoppingUrl;
 }
 
 
@@ -793,7 +737,7 @@ function updateQty() {
 
   var quantities = [];
   var validationError = false;
-  qtyFields.each(function(index, el) {
+  qtyFields.each(function (index, el) {
     if (!isUnsignedInteger(el.value)) {
       validationError = true;
     } else {
@@ -805,15 +749,13 @@ function updateQty() {
     return;
   }
 
-  var updatedItems = [];
-  var cartItems = ultraCart.getCart().items;
+  var cartItems = cart.items;
   for (var i = 0; i < cartItems.length; i++) {
-//    if (cartItems[i].quantity != quantities[i]) {
-      updatedItems.push({itemId: cartItems[i].itemId, quantity: quantities[i]});
-//    }
+    cartItems[i].quantity = quantities[i];
   }
 
-  renderErrors(ultraCart.updateItems(updatedItems));
+  updateCart(true);
+
 }
 
 
@@ -825,10 +767,7 @@ function updateQty() {
  */
 function getCartItemImg(cartItem) {
   if (!cartItem.defaultThumbnailUrl) return getCartItemImgFromMultimedia(cartItem);
-
-  return "<img alt='' src='"
-      + cartItem.defaultThumbnailUrl
-      + "' />";
+  return "<img alt='' src='" + cartItem.defaultThumbnailUrl + "' />";
 }
 
 function getCartItemImgFromMultimedia(cartItem) {
@@ -837,24 +776,26 @@ function getCartItemImgFromMultimedia(cartItem) {
   var media = cartItem.multimedias;
   if (media.length > 0) {
     for (var i in media) {
-      if (media[i].type == ultraCart.multimedia.IMAGE && media[i].isDefault) {
-        if (media[i].thumbnails && media[i].thumbnails.length > 0) {
-          var thumbnail = media[i].thumbnails[0];
+      if (media.hasOwnProperty(i)) {
+        if (media[i].type == "Image" && media[i].isDefault) {
+          if (media[i].thumbnails && media[i].thumbnails.length > 0) {
+            var thumbnail = media[i].thumbnails[0];
 
-          var url = '';
-          if (thumbnail.httpsUrl && thumbnail.httpUrl) {
-            url = ((window.location.protocol == "https:") ? (thumbnail.httpsUrl || thumbnail.httpUrl) : thumbnail.httpUrl);
-          } else if (thumbnail.httpUrl) {
-            url = thumbnail.httpUrl;
+            var url = '';
+            if (thumbnail.httpsUrl && thumbnail.httpUrl) {
+              url = ((window.location.protocol == "https:") ? (thumbnail.httpsUrl || thumbnail.httpUrl) : thumbnail.httpUrl);
+            } else if (thumbnail.httpUrl) {
+              url = thumbnail.httpUrl;
+            }
+
+            return "<img alt='' width='"
+                    + thumbnail.width
+                    + "px' height='"
+                    + thumbnail.height
+                    + "px' src='"
+                    + url
+                    + "' />";
           }
-
-          return "<img alt='' width='"
-              + thumbnail.width
-              + "px' height='"
-              + thumbnail.height
-              + "px' src='"
-              + url
-              + "' />";
         }
       }
     }
@@ -868,11 +809,18 @@ function getCartItemImgFromMultimedia(cartItem) {
  * applies a coupon to the cart.
  */
 function applyCoupon() {
-  var couponCode = jQuery('#couponCode').val();
+  var couponEntryField = jQuery('#couponCode');
+  var couponCode = couponEntryField.val();
   if (couponCode && couponCode.trim().length > 0) {
-    renderErrors(ultraCart.applyCoupon(couponCode));
+
+    // See http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API#UltraCartRESTCheckoutAPI-CartCoupon
+    cart.coupons.push({couponCode: couponCode});
+    updateCart(true);
+
   }
-  jQuery('#couponCode').val('')
+
+  couponEntryField.val('');
+
 }
 
 
@@ -881,11 +829,37 @@ function applyCoupon() {
  * @param coupon - the coupon code
  */
 function removeCoupon(coupon) {
-  renderErrors(ultraCart.removeCoupon(coupon));
+
+  if (cart && cart.coupons && cart.coupons.length) {
+
+    // See http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API#UltraCartRESTCheckoutAPI-CartCoupon
+    for (var i = 0; i < cart.coupons.length; i++) {
+      if (cart.coupons[i].couponCode == coupon) {
+        cart.coupons.splice(i, 1);
+        break;
+      }
+    }
+
+    updateCart(true);
+
+  }
 }
 
 function chooseShipping() {
-  ultraCart.setShippingChoice(jQuery('[name=shippingMethod]:checked').val());
+  var shippingMethod = jQuery('[name=shippingMethod]:checked').val();
+  cart.shippingMethod = shippingMethod;
+
+  // find the cost and set that as well.  the server doesn't mess with cost until finalize to keep things fast.
+  if (shippingEstimates && shippingEstimates.length) {
+    for (var i = 0; i < shippingEstimates.length; i++) {
+      if (shippingEstimates[i].name == shippingMethod) {
+        cart.shippingHandling = shippingEstimates[i].cost;
+      }
+    }
+  }
+
+  updateCart(true);
+
 }
 
 
@@ -932,154 +906,3 @@ function readCookie(name) {
   return null;
 }
 
-function eraseCookie(name) {
-  createCookie(name, "", -1);
-}
-
-function addToCart(item, qty, clearCart) {
-
-  if (clearCart) {
-
-    // this is done using one call, and has more javascript, but only one remote call.
-    var updatedItems = [];
-    // add the actual item desired
-    updatedItems.push({itemId:item, quantity:qty});
-
-    // if there are any other items, set their quantity to zero
-    var cartItems = ultraCart.getCart().items;
-    for (var i in cartItems) {
-      var existingItem = cartItems[i];
-      updatedItems.push({itemId:existingItem.itemId, quantity:0});
-    }
-
-    renderErrors(ultraCart.updateItems(updatedItems));
-  } else {
-
-    // this is formatted to illustrate what's being done.
-    // I'm passing an array of cartItems to addItems().
-    // the only required fields are itemId and quantity, so I create a
-    // simple object with those properties, wrap it in an array, and pass it along.
-    renderErrors(ultraCart.addItems(
-        [
-          {
-            itemId:item,
-            quantity:qty
-          }
-        ]
-    ));
-  }
-
-}
-
-
-// ===========================================================================
-// Development Functions.
-// Here is code which adds developmental widgets to the screen for testing.
-// ===========================================================================
-
-function renderControlBar() {
-  if (jQuery('#ucdevel_controlbar').length > 0) {
-    return;
-  }
-
-  var body = jQuery('body');
-  var html = '';
-  html += '<div id="ucdevel_controlbar" style="background-color:#fff6bf;border-top: 1px solid #ffd324;border-bottom: 1px solid #ffd324;font-family:Verdana,serif;font-size:0.75em;margin-top:10px;margin-bottom:10px;padding:5px"><div style="float:left">| UltraCart Development Panel v1.0 MERCHANT:' + merchantCartConfig.merchantId + ' (see top of cart.js!)</div><div style="clear:both;"></div></div>';
-  body.prepend(html);
-}
-
-
-function renderItemQuickAdd() {
-  if (jQuery('#ucdevel_quickadd').length > 0) {
-    return;
-  }
-  renderControlBar();
-
-  var body = jQuery('body');
-
-
-  var html = '';
-  html += '<div id="ucdevel_quickadd" style="background-color:#fff6bf;border: 1px solid #ffd324;font-family:Verdana,serif;font-size:0.75em;position:absolute;top:40px;left:0;margin:10px;padding:5px;width:500px;display:none;">';
-  html += '<div style="font-weight:bold;padding-bottom:5px;">Development Widget: Quick Add (<span style="font-color:red">REMOVE FOR PRODUCTION</span>)</div>';
-  html += '<table style="font-size:1.0em">';
-  html += '<tr><td>Item ID:</td><td><input type="text" size="20" id="ucdevel_quickadd_item" /></td></tr>';
-  html += '<tr><td>Quantity:</td><td><input type="text" size="20" id="ucdevel_quickadd_qty" /></td></tr>';
-  html += '<tr><td>&nbsp;</td><td><input type="checkbox" id="ucdevel_quickadd_clear" /> Clear Cart First</td></tr>';
-  html += '<tr><td><input type="button" value="Add" id="ucdevel_quickadd_btn" style="font-size:1.0em" /></td><td>&nbsp;</td></tr></table>';
-  html += '<span style="font-weight:bold;cursor:pointer;color:blue;float:right;margin-bottom:5px;margin-right:5px;" onclick="toggleItemQuickAdd()">Hide</span></div>';
-
-  body.prepend(html);
-
-  jQuery('#ucdevel_controlbar').prepend('<div style="float:left;padding-left:5px;padding-right:5px;cursor:pointer;color:blue;" onclick="toggleItemQuickAdd()">| Quick Add</div>');
-
-
-  jQuery('#ucdevel_quickadd_btn').click(function() {
-    toggleItemQuickAdd();
-    var item = jQuery('#ucdevel_quickadd_item').val();
-    var qty = jQuery('#ucdevel_quickadd_qty').val();
-    var clearCart = jQuery('#ucdevel_quickadd_clear').attr('checked');
-    addToCart(item, qty, clearCart);
-
-  });
-}
-
-function toggleItemQuickAdd() {
-  jQuery('#ucdevel_quickadd').toggle();
-}
-
-
-function renderBizRulesConfig() {
-  if (jQuery('#ucdevel_config').length > 0) {
-    return;
-  }
-  renderControlBar();
-
-  var body = jQuery('body');
-
-
-  var html = '';
-  html += '<div id="ucdevel_config" style="background-color:#fff6bf;border: 1px solid #ffd324;font-family:Verdana,serif;font-size:0.75em;position:absolute;top:40px;left:0;margin:10px;padding:5px;width:500px;display:none;">';
-  html += '<div style="font-weight:bold;padding-bottom:5px;">Development Widget: Biz Rules Config (<span style="font-color:red">REMOVE FOR PRODUCTION</span>)</div>';
-  html += '<table style="font-size:1.0em">';
-
-  for (var p in businessRules) {
-    if (businessRules.hasOwnProperty(p)) {
-      html += '<tr><td><input type="checkbox"' + (businessRules[p] ? 'checked="checked"' : '') + ' onclick="toggleBizRule(this, \'' + p + '\')" /></td><td> ' + p + '</td></tr>';
-    }
-  }
-
-  html += '<tr><td><input type="button" value="Reinitialize Cart" id="ucdevel_config_btn" style="font-size:1.0em" /></td><td>&nbsp;</td></tr></table>';
-  html += '<span style="font-weight:bold;cursor:pointer;color:blue;float:right;margin-bottom:5px;margin-right:5px;" onclick="toggleBizRulesConfig()">Hide</span></div>';
-
-  body.prepend(html);
-
-  jQuery('#ucdevel_controlbar').prepend('<div style="float:left;padding-left:5px;padding-right:5px;cursor:pointer;color:blue;" onclick="toggleBizRulesConfig()">| Merchant Properties</div>');
-
-
-  jQuery('#ucdevel_config_btn').click(function() {
-    jQuery('#ucdevel_config').toggle();
-    reinitializeCart();
-  });
-}
-
-//noinspection JSUnusedGlobalSymbols
-function toggleBizRule(checkbox, prop) {
-  businessRules[prop] = checkbox.checked;
-}
-
-function toggleBizRulesConfig() {
-  jQuery('#ucdevel_config').toggle();
-}
-
-
-/**
- * calls init again, effectively reinitialize the cart
- */
-function reinitializeCart() {
-  ultraCart.init(merchantCartConfig);
-  var cartListeners = merchantCartConfig.listeners['cartchange'];
-  for (var i = 0; i < cartListeners.length; i++) {
-    cartListeners[i].call();
-  }
-  merchantOnReady();
-}

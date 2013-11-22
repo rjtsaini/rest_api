@@ -30,24 +30,30 @@ body{
 #shoppingCartWrapper{ padding: 20px;}
 
 
-#emailContainer{ display:none; }
+/*#emailContainer{ display:none; }*/
 #emailConfirmContainer{ display:none; }
 
 /* business rules determine which of these are shown */
-#ucGoogleCheckoutSection { display:none; }
-#ucPayPalCheckoutSection { display:none; }
+#ucPayPalCheckoutSection { display:none; float:left; width:200px;}
+#AmazonPayButton { display:none; float:left; width:200px; }
 #ucUltraCartCheckoutSection { display:none; }
-#ucGoogleConjunction1 { display:none; }
-#ucGoogleConjunction2 { display:none; }
-#ucPayPalConjunction { display:none; }
-#continueShoppingContainer{ display:none; }
+#ucPaymentConjunction { display:none; }
+/*#continueShoppingContainer{ display:none; }*/
 #removeItemHeader{ display:none; }
 #couponContainer{ display:none;}
-#shippingTitleContainer{ display:none; }
-#billingTitleContainer{ display:none; }
+#shipToTitleContainer{ display:none; }
+#billToTitleContainer{ display:none; }
+
+#AddressBookWidgetDiv,#AmazonWalletWidgetDiv{
+  margin-bottom:15px;
+}
 
 #securelink {
   font-size: 10px;
+}
+
+.fieldNote{
+  font-size: 9px;
 }
 
 #cartItemsTable{
@@ -63,6 +69,7 @@ body{
   padding-right:5px;
   padding-top:5px;
   padding-bottom:5px;
+  text-align: left;
 }
 
 #cartItemsTable tbody td{
@@ -94,6 +101,11 @@ body{
 #cartItemsTable .right_header{
   text-align:right;
 }
+
+#cartItemsTable .center_header{
+  text-align:center;
+}
+
 
 #cartItemsTable .item_thumbnail{
   text-align:center;
@@ -183,9 +195,6 @@ body{
   color:blue;
 }
 
-.google_link{
-
-}
 
 .paypal_link{
 
@@ -222,19 +231,27 @@ body{
   padding:5px;
   font-size:12px;
   display:none;
-  width:920px;
+  width:910px;
   margin: 10px auto;
 }
-#error_container_wrapper{ padding: 20px;}
+#error_container_wrapper{
+  padding: 5px;
+  /*width:910px;*/
+}
 
 #error_messages{
   padding-top:2px;
   padding-bottom:2px;
 }
 
+#error_messages ul{
+  margin-bottom:5px;
+}
+
 #error_messages li{
   padding-top:1px;
   padding-bottom:1px;
+  margin-bottom: 2px;
 }
 
 
@@ -293,12 +310,12 @@ body{
   color: #CC0000;
 }
 
-#billingTable{
+#billToTable{
   display: none;
   width:325px;
 }
 
-#shippingTable{
+#shipToTable{
   width:325px;
 }
 
@@ -311,19 +328,12 @@ body{
 	font-family: Arial, Verdana, Geneva, Helvetica, sans-serif;
 	font-size: 11px;
 	color: #333333;
-}
-
-#shipFrom{
-  text-align: left;
-  font-size: 11px;
-  font-family: arial, serif;
-  padding-left: 10px;
-  margin-bottom:10px;
+  font-weight: normal;
 }
 
 #billingDifferentContainer{
   margin-bottom:10px;
-  padding-left:10px;
+  /*padding-left:10px;*/
 }
 
 

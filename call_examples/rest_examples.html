@@ -1,0 +1,2272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title></title>
+<link rel="stylesheet" href="css/normalize.css">
+<link rel="stylesheet" href="css/style.css">
+<link href="css/shCore.css" rel="stylesheet" type="text/css"/>
+<!-- for syntax highlighting -->
+<link href="css/shThemeDefault.css" rel="stylesheet" type="text/css"/>
+<!-- for syntax highlighting -->
+
+<!--[if IE]>
+<script type='text/javascript' src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
+<script type="text/javascript" src="js/json2.js"></script>
+<script type="text/javascript" src="js/jquery-1.8.3.js"></script>
+<script type="text/javascript" src="js/jquery.cookie.js"></script>
+<script type="text/javascript" src="js/shCore.js"></script>
+<!-- syntax highlighting -->
+<script type="text/javascript" src="js/shBrushJScript.js"></script>
+<!-- syntax highlighting -->
+<script type="text/javascript" src="js/support.js"></script>
+<!-- syntax highlighting and page navigation -->
+
+
+<!-- needed for the stored credit card example -->
+<script type="text/javascript" src="./myaccount_rest_1.3.js"></script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block01">
+  function createCart() {
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      headers: {'X-UC-Merchant-Id': 'DEMO',
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (cart) {
+          jQuery('#createCartResults').html('<pre>' + JSON.stringify(cart, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#createCartButton').on('click', createCart);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block02">
+  function updateCart() {
+    // it's okay to have an empty cartId initially, but the property merchantId *must* be present and explicit.
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '',
+      'email': 'demo@demo.com' // pick any random field.  email will suffice for this demonstration
+    };
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      type: 'PUT', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (updatedCart) {
+          jQuery('#updateCartResults').html('<pre>' + JSON.stringify(updatedCart, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#updateCartButton').on('click', updateCart);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block03">
+  function runPathCartExample() {
+
+    // insert a cart (POST), then update it.  finally get it (simulate user leaving page and returning)
+    // the call below may look complicated, but it's just 3 asynchronous calls chained together to
+    // simulate a brief cart lifecycle.
+
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '',
+      'email': 'demo@demo.com' // pick any random field.  email will suffice for this demonstration
+    };
+
+    var cartId = null;
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      type: 'POST', // Notice, POST == insert
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (newCart) {
+
+          cartId = newCart.cartId;
+          newCart.shipToFirstName = "John";
+          newCart.shipToLastName = "Anderson";
+
+          jQuery.ajax({
+            url: './rest_proxy.php?_url=/rest/cart/' + cartId, // Notice, using path parameter REST call
+            type: 'PUT', // Notice, PUT == update
+            headers: { "cache-control": "no-cache" },
+            contentType: 'application/json; charset=UTF-8',
+            data: JSON.stringify(newCart),
+            dataType: 'json'
+          }).done(function (updatedCart) {
+
+                // without even looking at the updatedCart return variable, call get cart and review
+                // it to make sure it contains the updated name information.
+                jQuery.ajax({
+                  url: './rest_proxy.php?_url=/rest/cart/' + cartId,
+                  headers: {'X-UC-Merchant-Id': 'DEMO',
+                    "cache-control": "no-cache" }, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+                  dataType: 'json'
+                }).done(function (cart) {
+                      jQuery('#pathCartResults').html('<pre>' + JSON.stringify(cart, null, '  ') + '</pre>');
+                    }); // end of ajax call #3
+              }); // end of ajax call #2
+        }); // end of ajax call #1
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#pathCartButton').on('click', runPathCartExample);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block04">
+  function addItems() {
+
+    var items = [];
+    for (var i = 1; i < 5; i++) {
+      var item = jQuery('#addItemsId' + i).val();
+      var quantity = jQuery('#addItemsQuantity' + i).val();
+      if (item && quantity) {
+        items.push({'itemId': item, 'quantity': parseInt(quantity)});
+      }
+    }
+
+    var cart = {
+      'merchantId': jQuery('#addItemsMerchantId').val() || 'DEMO',
+      'cartId': '', // will be populated by call
+      'items': items
+    };
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      type: 'PUT', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (updatedCart) {
+
+          // delete the last item and update the cart before displaying the results.
+          updatedCart.items.pop();
+
+          jQuery.ajax({
+            url: './rest_proxy.php?_url=/rest/cart',
+            type: 'PUT', // Notice, PUT == update
+            headers: { "cache-control": "no-cache" },
+            contentType: 'application/json; charset=UTF-8',
+            data: JSON.stringify(updatedCart),
+            dataType: 'json'
+          }).done(function (cartWithTwoItems) {
+
+                // can't use the following line because the cart (with items) will contain javascript strings the jQuery().html() will try to interpret.
+                //jQuery('#addItemsResults').html('<pre>' + JSON.stringify(updatedCart, null, '  ') + '</pre>');
+                var txt = JSON.stringify(cartWithTwoItems, null, '  ');
+                var pre = jQuery('<pre>');
+                pre.text(txt);
+                jQuery('#addItemsResults').html('').append(pre);
+
+              });
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#addItemsButton').on('click', addItems);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block05">
+  function estimateShipping() {
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '', // will be populated by call
+      'items': [
+        {'itemId': 'PDF', 'quantity': 1},
+        {'itemId': 'Baseball', 'quantity': 2},
+        {'itemId': 'BONE', 'quantity': 5}
+      ]
+    };
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      type: 'PUT', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (updatedCart) {
+
+          jQuery.ajax({
+            url: './rest_proxy.php?_url=/rest/cart/estimateShipping',
+            type: 'POST', // Notice
+            headers: { "cache-control": "no-cache" },
+            contentType: 'application/json; charset=UTF-8',
+            data: JSON.stringify(updatedCart),
+            dataType: 'json'
+          }).done(function (availableShippingMethods) {
+
+                var txt = JSON.stringify(availableShippingMethods, null, '  ');
+                var pre = jQuery('<pre>');
+                pre.text(txt);
+                jQuery('#estimateShippingResults').html('').append(pre);
+
+              });
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#estimateShippingButton').on('click', estimateShipping);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block06">
+  function checkout() {
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '', // will be populated by call
+
+      "customField1": 'blah blah blah',
+      "customField2": 'perhaps an affiliate id here?',
+      "coupons": [
+        {couponCode: '10OFF'}
+      ], // here is a coupon for $10 off the order
+      "advertisingSource": "Radio",
+      "screenBrandingThemeCode": "CSTM", // The demo account has a second them set up using the code CSTM
+      "shippingMethod": "FedEx: 2-Day",
+      "shipToFirstName": "Testy",
+      "shipToLastName": "Testerson",
+      "shipToTitle": "Sir",
+      "shipToCompany": "Ultra Trains",
+      "shipToAddress1": "55 Main Street",
+      "shipToAddress2": "Suite 101",
+      "shipToCity": "Duluth",
+      "shipToState": "GA",
+      "shipToPostalCode": "30097",
+      "shipToCountry": "United States",
+      "shipToPhone": "555-555-1212",
+      "shipToEveningPhone": "5555553434", // notice the different format?
+      "billToDayPhone": "555-555-1212",
+      "billToEveningPhone": "5555551212",
+      "billToFirstName": "Smith",
+      "billToLastName": "Joe",
+      "billToTitle": "Chief",
+      "billToCompany": "Widgets, INC",
+      "billToAddress1": "2000 Montana Dr",
+      "billToAddress2": "",
+      "billToCity": "Duluth",
+      "billToState": "GA",
+      "billToPostalCode": "30097",
+      "billToCountry": "United States",
+      "email": "test@test.com",
+      "emailConfirm": "test@test.com",
+      "paymentMethod": "Credit Card",
+      "creditCardType": "VISA",
+      "creditCardNumber": "4444333322221111",
+      "creditCardExpirationMonth": 12,
+      "creditCardExpirationYear": 2028,
+      "creditCardVerificationNumber": "123",
+      'items': [
+        {'itemId': 'PDF', 'quantity': 1},
+        {'itemId': 'Baseball', 'quantity': 2},
+        {'itemId': 'BONE', 'quantity': 5}
+      ]
+    };
+
+    // Notice: The checkout call does not take a cart.  It takes a CheckoutRequest which contains a cart.
+    // Since the checkout process hands of to UltraCart to handle upsells, etc., we must also provide the
+    // return point.
+    var checkoutRequest = {
+      'cart': cart,
+      errorParameterName: 'error', // if there are errors after the handoff, the redirect page will receive those errors using this http parameter
+      errorReturnUrl: document.URL, // this same page.
+      secureHostName: null // can be null.  defaults to secure.ultracart.com if null.  could also be www.mystore.com if that was your url.
+      // the secureHostName is where the checkout finishes on (receipt).  many merchants have dozens of sites.  So, if this isn't secure.ultracart and
+      // you have more than one, you must specify it.
+    };
+
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/checkout',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(checkoutRequest),
+      dataType: 'json'
+    }).done(function (checkoutResult) {
+
+
+          var txt = JSON.stringify(checkoutResult, null, '  ');
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+
+          var resultsDiv = jQuery('#checkoutResults');
+          if (checkoutResult && checkoutResult.redirectToUrl) {
+            resultsDiv.append("<div><a target='_blank' href='" + checkoutResult.redirectToUrl + " '>" + checkoutResult.redirectToUrl + "</a></div>");
+          }
+          resultsDiv.html('').append(pre);
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#checkoutButton').on('click', checkout);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block07">
+  function validate() {
+    var cart = {
+      'merchantId': 'DEMO'
+    };
+
+    // grab the field values and add them to the cart.
+    jQuery('.validation-fields input').each(function (idx, el) {
+      cart[el.name] = jQuery.trim(el.value);
+    });
+
+
+    cart.items = [{'itemId':'BONE',quantity:2}];
+
+    // validations are query parameters.
+    var checks = [];
+    jQuery('.validation-checkbox:checked').each(function (idx, el) {
+      checks.push(encodeURIComponent(el.value));
+    });
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/validate&check=' + checks.join("&check="),
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (validationErrors) {
+
+          var txt = null;
+          if (validationErrors && validationErrors.length == 0) {
+            txt = "No Errors Reported.";
+          } else {
+            txt = JSON.stringify(validationErrors, null, '  ');
+          }
+
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+          jQuery('#validateResults').html('').append(pre);
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#validateButton').on('click', validate);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block08">
+  // since this demonstration has both a set and a clear, I'll need some state.
+  // so I'm going to use a global variable to store a cart reference.  Don't hate me.
+  var finalizeCart = null;
+
+  function finalizeAfter() {
+
+    if (!finalizeCart) {
+      jQuery.ajax({
+        url: './rest_proxy.php?_url=/rest/cart',
+        headers: {'X-UC-Merchant-Id': 'DEMO',
+          "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+        dataType: 'json',
+        async: false // for the demonstration, I'm keeping it simple with an synchronous call...
+      }).done(function (cart) {
+            finalizeCart = cart;
+          });
+    }
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/setFinalizeAfter&minutes=20', //minutes is optional.  default is 30
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(finalizeCart),
+      dataType: 'json'
+    }).done(function (data, textStatus, jqXHR) {
+
+          var txt = jqXHR.status == 204
+              ? "Server returned 204 'No Content', so the setFinalizeAfter was successful"
+              : "Error. setFinalizeAfter failed with this: " + textStatus;
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+          jQuery('#finalizeResults').html('').append(pre);
+
+
+        });
+  }
+
+
+  function clearFinalizeAfter() {
+    if (!finalizeCart) {
+      alert('Please click the finalizeAfter button before attempting to clear it.');
+      return;
+    }
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/clearFinalizeAfter',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(finalizeCart),
+      dataType: 'json'
+    }).done(function (data, textStatus, jqXHR) {
+
+          var txt = jqXHR.status == 204
+              ? "Server returned 204 'No Content', so the clearFinalizeAfter was successful"
+              : "Error. clearFinalizeAfter failed with this: " + textStatus;
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+          jQuery('#finalizeResults').html('').append(pre);
+
+        });
+  }
+
+
+  jQuery(document).ready(function () {
+    jQuery('#finalizeAfterButton').on('click', finalizeAfter);
+    jQuery('#finalizeClearButton').on('click', clearFinalizeAfter);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block09">
+
+  var customerCart = null; // another global variable.  I need to keep state for this demonstration
+
+  function register() {
+
+    // any cart passed to register must have a valid merchant id AND cart id, so I'm creating a cart here.
+    if (!customerCart) {
+      jQuery.ajax({
+        url: './rest_proxy.php?_url=/rest/cart',
+        headers: {'X-UC-Merchant-Id': 'DEMO',
+          "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+        dataType: 'json',
+        async: false // for the demonstration, I'm keeping it simple with an synchronous call...
+      }).done(function (cart) {
+            customerCart = cart;
+          });
+    }
+
+    customerCart.email = jQuery.trim(jQuery('.customer-section input[name=email]').val());
+    customerCart.password = jQuery.trim(jQuery('.customer-section input[name=password]').val());
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/register',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(customerCart),
+      dataType: 'json'
+    }).done(function (loggedInCart) {
+          customerCart = loggedInCart;
+
+          var txt = JSON.stringify(customerCart, null, '  ');
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+          jQuery('#customerResults').html('').append(pre);
+
+        });
+  }
+
+  function logout() {
+    if (!customerCart || !customerCart.loggedIn) {
+      alert('Please login first.');
+      return;
+    }
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/logout',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(customerCart),
+      dataType: 'json'
+    }).done(function (loggedOutCart) {
+          customerCart = loggedOutCart;
+
+          var txt = JSON.stringify(customerCart, null, '  ');
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+          jQuery('#customerResults').html('').append(pre);
+
+        });
+  }
+
+
+  function login() {
+
+    // any cart passed to register must have a valid merchant id AND cart id, so I'm creating a cart here.
+    if (!customerCart) {
+      alert('Please register first to create a cart');
+      return;
+    }
+
+    customerCart.email = jQuery.trim(jQuery('.customer-section input[name=email2]').val());
+    customerCart.password = jQuery.trim(jQuery('.customer-section input[name=password2]').val());
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/login',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(customerCart),
+      dataType: 'json'
+    }).done(function (loggedInCart) {
+          customerCart = loggedInCart;
+
+          var txt = JSON.stringify(customerCart, null, '  ');
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+          jQuery('#customerResults').html('').append(pre);
+
+        });
+  }
+
+
+  function resetPassword() {
+
+    // any cart passed to register must have a valid merchant id AND cart id, so I'm creating a cart here.
+    if (!customerCart) {
+      alert('Please register first to create a cart');
+      return;
+    }
+
+    customerCart.email = jQuery.trim(jQuery('.customer-section input[name=email3]').val());
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/resetPassword',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(customerCart),
+      dataType: 'text' // Notice - plain text response.  no json
+    }).done(function (response) {
+
+          var pre = jQuery('<pre>');
+          pre.text(response);
+          jQuery('#customerResults').html('').append(pre);
+
+        });
+  }
+
+
+  jQuery(document).ready(function () {
+    jQuery('#registerButton').on('click', register);
+    jQuery('#logoutButton').on('click', logout);
+    jQuery('#loginButton').on('click', login);
+    jQuery('#resetPasswordButton').on('click', resetPassword);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block10">
+  function checkoutTerms() {
+
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '', // will be populated by call
+      'items': [
+        {'itemId': 'PDF', 'quantity': 1},
+        {'itemId': 'Baseball', 'quantity': 2},
+        {'itemId': 'BONE', 'quantity': 5}
+      ]
+    };
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (updatedCart) {
+
+          jQuery.ajax({
+            url: './rest_proxy.php?_url=/rest/cart/checkoutTerms',
+            type: 'POST', // Notice
+            headers: { "cache-control": "no-cache" },
+            contentType: 'application/json; charset=UTF-8',
+            data: JSON.stringify(updatedCart),
+            dataType: 'json'
+          }).done(function (terms) {
+
+                var txt = JSON.stringify(terms, null, '  ');
+                var pre = jQuery('<pre>');
+                pre.text(txt);
+                jQuery('#checkoutTermsResults').html('').append(pre);
+
+              });
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#checkoutTermsButton').on('click', checkoutTerms);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block11">
+  function relatedItems() {
+
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '', // will be populated by call
+      'items': [
+        {'itemId': 'Baseball', 'quantity': 2}
+      ]
+    };
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (updatedCart) {
+
+          jQuery.ajax({
+            url: './rest_proxy.php?_url=/rest/cart/relatedItems',
+            type: 'POST', // Notice
+            headers: { "cache-control": "no-cache" },
+            contentType: 'application/json; charset=UTF-8',
+            data: JSON.stringify(updatedCart),
+            dataType: 'json'
+          }).done(function (items) {
+
+                var txt = JSON.stringify(items, null, '  ');
+                var pre = jQuery('<pre>');
+                pre.text(txt);
+                jQuery('#relatedItemsResults').html('').append(pre);
+
+              });
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#relatedItemsButton').on('click', relatedItems);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block12">
+  function cityState() {
+
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '', // will be populated by call
+      'shipToPostalCode': '44233'
+    };
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(cart),
+      dataType: 'json'
+    }).done(function (updatedCart) {
+
+          jQuery.ajax({
+            url: './rest_proxy.php?_url=/rest/cart/cityState',
+            type: 'POST', // Notice
+            headers: { "cache-control": "no-cache" },
+            contentType: 'application/json; charset=UTF-8',
+            data: JSON.stringify(updatedCart),
+            dataType: 'json'
+          }).done(function (cityStateZip) {
+
+                var txt = JSON.stringify(cityStateZip, null, '  ');
+                var pre = jQuery('<pre>');
+                pre.text(txt);
+                jQuery('#cityStateResults').html('').append(pre);
+
+              });
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#cityStateButton').on('click', cityState);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block13">
+  function finalizeOrder() {
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '', // will be populated by call
+
+      "customField1": 'blah blah blah',
+      "customField2": 'perhaps an affiliate id here?',
+      "coupons": [
+        {couponCode: '10OFF'}
+      ], // here is a coupon for $10 off the order
+      "advertisingSource": "Radio",
+      "screenBrandingThemeCode": "CSTM", // The demo account has a second them set up using the code CSTM
+      "shippingMethod": "FedEx: 2-Day",
+      "shipToFirstName": "Testy",
+      "shipToLastName": "Testerson",
+      "shipToTitle": "Sir",
+      "shipToCompany": "Ultra Trains",
+      "shipToAddress1": "55 Main Street",
+      "shipToAddress2": "Suite 101",
+      "shipToCity": "Duluth",
+      "shipToState": "GA",
+      "shipToPostalCode": "30097",
+      "shipToCountry": "United States",
+      "shipToPhone": "555-555-1212",
+      "shipToEveningPhone": "5555553434", // notice the different format?
+      "billToDayPhone": "555-555-1212",
+      "billToEveningPhone": "5555551212",
+      "billToFirstName": "Smith",
+      "billToLastName": "Joe",
+      "billToTitle": "Chief",
+      "billToCompany": "Widgets, INC",
+      "billToAddress1": "2000 Montana Dr",
+      "billToAddress2": "",
+      "billToCity": "Duluth",
+      "billToState": "GA",
+      "billToPostalCode": "30097",
+      "billToCountry": "United States",
+      "email": "test@test.com",
+      "emailConfirm": "test@test.com",
+      "paymentMethod": "Credit Card",
+      "creditCardType": "VISA",
+      "creditCardNumber": "4444333322221111",
+      "creditCardExpirationMonth": 12,
+      "creditCardExpirationYear": 2028,
+      "creditCardVerificationNumber": "123",
+      'items': [
+        {'itemId': 'PDF', 'quantity': 1},
+        {'itemId': 'Baseball', 'quantity': 2},
+        {'itemId': 'BONE', 'quantity': 5}
+      ]
+    };
+
+    // Notice: The checkout call does not take a cart.  It takes a CheckoutRequest which contains a cart.
+    // Since the checkout process hands of to UltraCart to handle upsells, etc., we must also provide the
+    // return point.
+    var finalizeOrderRequest = {
+      'cart': cart,
+      'credentials': {
+        'merchantId': 'DEMO',
+        'login': 'demo',
+        'password': 'DoNotRunInBrowser'
+      },
+      'options': {
+        noRealtimePaymentProcessing: true, // boolean
+        skipPaymentProcessing: false, // boolean
+        autoApprovePurchaseOrder: true, // boolean
+        storeIfPaymentDeclines: true, // boolean (store the order even if payment declines -- goes into Accounts Receivable)
+        creditCardAuthorizationReferenceNumber: '1234565', // string, if CC auth was already done elsewhere
+        creditCardAuthorizationAmount: 45.45, // decimal/float
+        creditCardAuthorizationDate: '2013-06-03T17:02:26-0400' // string, ISO8601 format.
+        // channelPartnerOid: 54, // integer, channel partner identifier
+        // channelPartnerOrderId: 'CP-12345', // string, the order id the channel partner is using.
+        // storeCompleted: true // boolean, if true, the order is marked as 'completed' -- bypassing Accounts Receivable and Shipping
+      }
+    };
+
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/finalizeOrder',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(finalizeOrderRequest),
+      dataType: 'json'
+    }).done(function (finalizeOrderResult) {
+
+
+          var txt = JSON.stringify(finalizeOrderResult, null, '  ');
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+          var resultsDiv = jQuery('#finalizeOrderResults');
+          resultsDiv.html('').append(pre);
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#finalizeOrderButton').on('click', finalizeOrder);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block14">
+  function stateProvinces() {
+
+    var country = jQuery('#stateProvincesCountry').val() || 'United States';
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/stateProvinces',
+      data: {country: country},
+      type: 'get',
+      headers: {'X-UC-Merchant-Id': 'DEMO',
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (states) {
+          jQuery('#stateProvincesResult').html('<pre>' + JSON.stringify(states, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#stateProvincesButton').on('click', stateProvinces);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block15">
+  function stateProvinceCodes() {
+
+    var country = jQuery('#stateProvinceCodesCountry').val() || 'United States';
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/stateProvinceCodes',
+      data: {country: country},
+      type: 'get',
+      headers: {'X-UC-Merchant-Id': 'DEMO',
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (statesCodes) {
+          jQuery('#stateProvinceCodesResult').html('<pre>' + JSON.stringify(statesCodes, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#stateProvinceCodesButton').on('click', stateProvinceCodes);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block16">
+  function unifiedAffiliateScript() {
+    var merchantId = 'DEMO';
+    var secureHostName = "www.mystorenamehere.com";
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/unifiedAffiliateCookieScript',
+      data: {secureHostName: secureHostName},
+      type: 'get',
+      headers: {'X-UC-Merchant-Id': merchantId, // this is one way to pass MID
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'text'  // NOTE: This returns back plain text!
+    }).done(function (script) {
+          jQuery('#unifiedAffiliateCookieScriptResult').html('<pre>' + script + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#unifiedAffiliateCookieScriptButton').on('click', unifiedAffiliateScript);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block17">
+  function advertisingSources() {
+    var themeCode = "DFLT";
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/advertisingSources',
+      data: {screenBrandingThemeCode: themeCode},
+      type: 'get',
+      headers: {'X-UC-Merchant-Id': 'SANTI', // this is one way to pass MID
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (sources) {
+          jQuery('#advertisingResult').html('<pre>' + JSON.stringify(sources, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#advertisingButton').on('click', advertisingSources);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block18">
+  function returnPolicy() {
+    var themeCode = "DFLT";
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/returnPolicy',
+      data: {screenBrandingThemeCode: themeCode},
+      type: 'get',
+      headers: {'X-UC-Merchant-Id': 'DEMO', // this is one way to pass MID
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'text' // NOTICE the data type.  This returns plain text.
+    }).done(function (returnPolicy) {
+          jQuery('#returnPolicyResult').html('<pre>' + returnPolicy + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#returnPolicyButton').on('click', returnPolicy);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block19">
+  function allowedCountries() {
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/allowedCountries',
+      type: 'get',
+      headers: {'X-UC-Merchant-Id': 'DEMO', // this is one way to pass MID
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (countries) {
+          jQuery('#allowedCountriesResult').html('<pre>' + JSON.stringify(countries, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#allowedCountriesButton').on('click', allowedCountries);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block20">
+  function customerIpAddress() {
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/customerIpAddress',
+      type: 'get',
+      headers: {'X-UC-Merchant-Id': 'DEMO', // this is one way to pass MID
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'text' // Note! Plain text string
+    }).done(function (ipAddress) {
+          jQuery('#customerIpAddressResult').html('<pre>' + ipAddress + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#customerIpAddressButton').on('click', customerIpAddress);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block21">
+  function itemSearch() {
+
+    var merchantId = jQuery('#itemSearchMerchantId').val() || 'DEMO';
+    var search = jQuery('#itemSearchField').val() || '';
+    var itemsPerPage = 5;
+    var currentPage = 1;
+    var secureServerName = "secure.ultracart.com";
+
+    var data = {
+      _mid: merchantId,
+      search: search,
+      itemsPerPage: itemsPerPage,
+      currentPage: currentPage,
+      secureServerName: secureServerName
+    };
+
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/items/search',
+      type: 'get',
+      data: data,
+      headers: {// 'X-UC-Merchant-Id': 'DEMO', // PASSING IN Merchant ID as parameter so you can try your own!
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (results) {
+          jQuery('#itemSearchResult').html('<pre>' + JSON.stringify(results, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#itemSearchButton').on('click', itemSearch);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block22">
+  function items() {
+
+    var merchantId = jQuery('#itemsMerchantId').val() || 'DEMO';
+    var items = jQuery('#itemsField').val() || '';
+    items = items.split(','); // change the string into an array.
+    var url = jQuery('#itemsUrlField').val() || '';
+
+    var data = {
+      _mid: merchantId,
+      id: items,
+      url: url
+    };
+
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/items',
+      type: 'get',
+      data: data,
+      headers: {// 'X-UC-Merchant-Id': 'DEMO', // PASSING IN Merchant ID as parameter so you can try your own!
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (items) {
+          jQuery('#itemsResult').html('<pre>' + JSON.stringify(items, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#itemsButton').on('click', items);
+  });
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block23">
+  function singleItem() {
+
+    var item = jQuery('#itemField').val() || '';
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/site/items/' + item,
+      type: 'get',
+      headers: { 'X-UC-Merchant-Id': 'DEMO',
+        "cache-control": "no-cache"}, // could also pass merchant id as query parameter named '_mid' or cookie named 'UltraCartMerchantID'
+      dataType: 'json'
+    }).done(function (item) {
+          jQuery('#itemResult').html('<pre>' + JSON.stringify(item, null, '  ') + '</pre>');
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#itemButton').on('click', singleItem);
+  });
+
+</script>
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block24">
+
+  function checkoutWithStoredCreditCard() {
+
+    // this one is difficult to test.  It requires an account (customer profile) to already exist
+    // and have a stored credit card.  This is managed by the MyAccount API and outside the scope of
+    // this demo.   But, you'll see the code below all the same.
+    // I cannot use the cart/register call since that profile is NOT created until the end of a successful order.
+    // I must use the MyAccount api call.
+
+    // here are the steps
+    // create an account
+    // add a stored credit card
+    // place an order using the stored credit card.
+
+    // see myaccount_rest_1.0.js for the details of the myAccount object.
+
+
+    var email = jQuery.trim(jQuery('.stored-credit-card-section input[name=email4]').val());
+    var password = jQuery.trim(jQuery('.stored-credit-card-section input[name=password4]').val());
+
+    // make sure I'm not logged in as a customer right now.  I will be if I run this example more than once.
+    if (ultracart.myAccount.loggedIn()) {
+      ultracart.myAccount.logout();
+    }
+
+
+    var account = {email: email, password: password};
+    ultracart.myAccount.createAccount(account, {success: function (result) {
+      //noinspection JSUnusedAssignment
+      account = result; // the account object will now have the customer profile oid.  very important, even though I overwrite it a moment later...
+
+      // login.  the account creation doesn't automatically do that.
+      // To avoid nesting hell, this is synchronous.  you could pass in a success callback like the others.
+      account = ultracart.myAccount.login(email, password);
+
+      // register a credit card.
+      var creditCard = {
+        cardType: "VISA",
+        cardExpMonth: 1,
+        cardExpYear: 2020, // some time far in the future.
+        cardNumber: '4444333322221111'
+      };
+
+      ultracart.myAccount.insertCreditCard(creditCard, {success: function (result) {
+
+        creditCard = result; // creditCard now has the credit card oid (and the card number is now masked).
+        console.log(creditCard);
+
+        // with card in hand, it's time to place order.
+
+        // the login above happens, a cart is created on the server and the cookie set in the browser.  grab that cookie as the cart id.
+        // this is the same code as the finalize example, but with a stored credit card.
+        var cart = {
+          'merchantId': 'DEMO',
+          'cartId': jQuery.cookie('UltraCartShoppingCartID'),
+          "customField1": 'blah blah blah',
+          "customField2": 'perhaps an affiliate id here?',
+          "coupons": [
+            {couponCode: '10OFF'}
+          ], // here is a coupon for $10 off the order
+          "advertisingSource": "Radio",
+          "screenBrandingThemeCode": "CSTM", // The demo account has a second them set up using the code CSTM
+          "shippingMethod": "FedEx: 2-Day",
+          "shipToFirstName": "Testy",
+          "shipToLastName": "Testerson",
+          "shipToTitle": "Sir",
+          "shipToCompany": "Ultra Trains",
+          "shipToAddress1": "55 Main Street",
+          "shipToAddress2": "Suite 101",
+          "shipToCity": "Duluth",
+          "shipToState": "GA",
+          "shipToPostalCode": "30097",
+          "shipToCountry": "United States",
+          "shipToPhone": "555-555-1212",
+          "shipToEveningPhone": "5555553434", // notice the different format?
+          "billToDayPhone": "555-555-1212",
+          "billToEveningPhone": "5555551212",
+          "billToFirstName": "Smith",
+          "billToLastName": "Joe",
+          "billToTitle": "Chief",
+          "billToCompany": "Widgets, INC",
+          "billToAddress1": "2000 Montana Dr",
+          "billToAddress2": "",
+          "billToCity": "Duluth",
+          "billToState": "GA",
+          "billToPostalCode": "30097",
+          "billToCountry": "United States",
+          "email": "test@test.com",
+          "emailConfirm": "test@test.com",
+          "paymentMethod": "Credit Card",
+//          "creditCardType": "VISA",
+//          "creditCardNumber": "4444333322221111",
+//          "creditCardExpirationMonth": 12,
+//          "creditCardExpirationYear": 2028,
+
+          // Note: stored credit cards do store save the CVV.  Against the rules.
+          // If you're going to allow stored credit cards, you must turn off the requirement for CVV, or have the user enter that each time.
+          // For this example to work with our demo account, I'm just going to supply it here.
+          "creditCardVerificationNumber": "123",
+          "customerProfileCreditCardId": creditCard.id,
+          'items': [
+            {'itemId': 'PDF', 'quantity': 1},
+            {'itemId': 'Baseball', 'quantity': 2},
+            {'itemId': 'BONE', 'quantity': 5}
+          ]
+        };
+
+        // Notice: The checkout call does not take a cart.  It takes a CheckoutRequest which contains a cart.
+        // Since the checkout process hands of to UltraCart to handle upsells, etc., we must also provide the
+        // return point.
+        var checkoutRequest = {
+          'cart': cart,
+          errorParameterName: 'error', // if there are errors after the handoff, the redirect page will receive those errors using this http parameter
+          errorReturnUrl: document.URL, // this same page.
+          secureHostName: null // can be null.  defaults to secure.ultracart.com if null.  could also be www.mystore.com if that was your url.
+          // the secureHostName is where the checkout finishes on (receipt).  many merchants have dozens of sites.  So, if this isn't secure.ultracart and
+          // you have more than one, you must specify it.
+        };
+
+
+        jQuery.ajax({
+          url: './rest_proxy.php?_url=/rest/cart/checkout',
+          type: 'POST', // Notice
+          headers: { "cache-control": "no-cache" },
+          contentType: 'application/json; charset=UTF-8',
+          data: JSON.stringify(checkoutRequest),
+          dataType: 'json'
+        }).done(function (checkoutResult) {
+
+
+              var txt = JSON.stringify(checkoutResult, null, '  ');
+              var pre = jQuery('<pre>');
+              pre.text(txt);
+
+              var resultsDiv = jQuery('#checkoutWithStoredCreditCardResults');
+              if (checkoutResult && checkoutResult.redirectToUrl) {
+                resultsDiv.append("<div><a target='_blank' href='" + checkoutResult.redirectToUrl + " '>" + checkoutResult.redirectToUrl + "</a></div>");
+              }
+              resultsDiv.html('').append(pre);
+            });  // end of checkout
+
+      }});  // end of insert credit card
+
+    }}); // end of create account
+
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#checkoutWithStoredCreditCardButton').on('click', checkoutWithStoredCreditCard);
+  });
+
+
+</script>
+
+
+
+<!-- =========================================================================== -->
+<script type="text/javascript" class='demo-code-block' id="demo-code-block25">
+  function checkoutWithArbitraryUnitCost() {
+    var cart = {
+      'merchantId': 'DEMO',
+      'cartId': '', // will be populated by call
+
+      "customField1": 'blah blah blah',
+      "customField2": 'perhaps an affiliate id here?',
+      "advertisingSource": "Radio",
+      "screenBrandingThemeCode": "CSTM", // The demo account has a second them set up using the code CSTM
+      "shippingMethod": "FedEx: 2-Day",
+      "shipToFirstName": "Testy",
+      "shipToLastName": "Testerson",
+      "shipToTitle": "Sir",
+      "shipToCompany": "Ultra Trains",
+      "shipToAddress1": "55 Main Street",
+      "shipToAddress2": "Suite 101",
+      "shipToCity": "Duluth",
+      "shipToState": "GA",
+      "shipToPostalCode": "30097",
+      "shipToCountry": "United States",
+      "shipToPhone": "555-555-1212",
+      "shipToEveningPhone": "5555553434", // notice the different format?
+      "billToDayPhone": "555-555-1212",
+      "billToEveningPhone": "5555551212",
+      "billToFirstName": "Smith",
+      "billToLastName": "Joe",
+      "billToTitle": "Chief",
+      "billToCompany": "Widgets, INC",
+      "billToAddress1": "2000 Montana Dr",
+      "billToAddress2": "",
+      "billToCity": "Duluth",
+      "billToState": "GA",
+      "billToPostalCode": "30097",
+      "billToCountry": "United States",
+      "email": "test@test.com",
+      "emailConfirm": "test@test.com",
+      "paymentMethod": "Credit Card",
+      "creditCardType": "VISA",
+      "creditCardNumber": "4444333322221111",
+      "creditCardExpirationMonth": 12,
+      "creditCardExpirationYear": 2028,
+      "creditCardVerificationNumber": "123",
+      'items': [
+        {'itemId': 'PDF', 'quantity': 1},
+        {'itemId': 'Baseball', 'quantity': 2, 'arbitraryUnitCost': 4.54},
+        {'itemId': 'BONE', 'quantity': 5}
+      ]
+    };
+
+    // Notice: The checkout call does not take a cart.  It takes a CheckoutRequest which contains a cart.
+    // Since the checkout process hands of to UltraCart to handle upsells, etc., we must also provide the
+    // return point.
+    var checkoutRequest = {
+      'cart': cart,
+      errorParameterName: 'error', // if there are errors after the handoff, the redirect page will receive those errors using this http parameter
+      errorReturnUrl: document.URL, // this same page.
+      secureHostName: null // can be null.  defaults to secure.ultracart.com if null.  could also be www.mystore.com if that was your url.
+      // the secureHostName is where the checkout finishes on (receipt).  many merchants have dozens of sites.  So, if this isn't secure.ultracart and
+      // you have more than one, you must specify it.
+    };
+
+
+    jQuery.ajax({
+      url: './rest_proxy.php?_url=/rest/cart/checkout',
+      type: 'POST', // Notice
+      headers: { "cache-control": "no-cache" },
+      contentType: 'application/json; charset=UTF-8',
+      data: JSON.stringify(checkoutRequest),
+      dataType: 'json'
+    }).done(function (checkoutResult) {
+
+
+          var txt = JSON.stringify(checkoutResult, null, '  ');
+          var pre = jQuery('<pre>');
+          pre.text(txt);
+
+          var resultsDiv = jQuery('#checkoutWithArbitraryUnitCostResults');
+          if (checkoutResult && checkoutResult.redirectToUrl) {
+            resultsDiv.append("<div><a target='_blank' href='" + checkoutResult.redirectToUrl + " '>" + checkoutResult.redirectToUrl + "</a></div>");
+          }
+          resultsDiv.html('').append(pre);
+        });
+  }
+
+  jQuery(document).ready(function () {
+    jQuery('#checkoutWithArbitraryUnitCostButton').on('click', checkoutWithArbitraryUnitCost);
+  });
+</script>
+
+</head>
+
+<body id="home">
+<div id="content">
+<h1>Checkout v3 Demonstration</h1>
+
+<div
+    style="border: 1px solid; margin: 10px 0; padding: 15px 10px 15px 50px; border-radius: 5px; color: #9F6000;background-color: #FEEFB3;">
+  There are two main branches for the demonstrations below.
+  <ol>
+    <li>/rest/cart</li>
+    <li>/rest/site</li>
+  </ol>
+
+  /rest/cart contains cart-centric calls. The cart object plays a part in almost everyone call.<br>
+  /rest/site contains more <em>site-wide</em> calls that return back merchant configured settings. Some of those
+  calls also take an optional cart object, where the presence of a logged in user augments the call.<br>
+  For example: /rest/site/items has two methods, one of which takes a cart. Making the call without a cart
+  will return back standard pricing. Making the call <em>with</em> the cart will return back adjusted pricing
+  for the current customer. If your company uses pricing tiers, this will be of value.
+</div>
+<a name="top"></a>
+
+<div id="toc"></div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo01"></a>
+  <h4 class='title'>Create/Initialize a shopping cart</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Comments: Somewhat unnecessary. This would suffice for an initial cart:
+      <code>{'merchantId':'DEMO'}</code>, however, you can call get cart to receive an empty cart if desired. The real
+      usefulness is maintaining the state of the cart through cookies.
+      When a customer returns to a checkout page, this
+      call will reload their cart, provided you saved the cart id somewhere and pass it back in.
+    </div>
+    <input type="button" class='demo-button' value="Create Cart" id="createCartButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display01"></script>
+    Result:
+    <div class="results" id="createCartResults"></div>
+  </div>
+
+</div>
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo02"></a>
+  <h4 class='title'>Update a shopping cart</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Comments: merchantId and cartId are required. Notice that the cartId property is required even if empty. It must
+      be explicitly stated.
+    </div>
+    <input type="button" class='demo-button' value="Update Cart" id="updateCartButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display02"></script>
+    Result:
+    <div class="results" id="updateCartResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo03"></a>
+  <h4 class='title'>Insert a bare cart, get the cart, then update it using <em>path parameters</em></h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Path parameters (passing cart id as part of the path) is common among REST frameworks such as backbone.js.
+    </div>
+    <input type="button" class='demo-button' value="Run Path Cart Example" id="pathCartButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display03"></script>
+    Result:
+    <div class="results" id="pathCartResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo04"></a>
+  <h4 class='title'>Add items to a cart</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      The minimum requirement for adding items are item id and quantity.
+    </div>
+    <table>
+      <tr>
+        <td>Merchant ID</td>
+        <td><input type="text" id="addItemsMerchantId" size="10" value="DEMO"/></td>
+      </tr>
+      <tr>
+        <td>Item #1</td>
+        <td><input type="text" id="addItemsId1" value="BONE" size="20"/></td>
+        <td>Quantity:</td>
+        <td><input type="text" id="addItemsQuantity1" size="5" value="1"/></td>
+      </tr>
+      <tr>
+        <td>Item #2</td>
+        <td><input type="text" id="addItemsId2" value="COLECO" size="20"/></td>
+        <td>Quantity:</td>
+        <td><input type="text" id="addItemsQuantity2" size="5" value="2"/></td>
+      </tr>
+      <tr>
+        <td>Item #3</td>
+        <td><input type="text" id="addItemsId3" value="Baseball" size="20"/></td>
+        <td>Quantity:</td>
+        <td><input type="text" id="addItemsQuantity3" size="5" value="5"/></td>
+      </tr>
+      <tr>
+        <td>Item #4</td>
+        <td><input type="text" id="addItemsId4" size="20"/></td>
+        <td>Quantity:</td>
+        <td><input type="text" id="addItemsQuantity4" size="5"/></td>
+      </tr>
+
+    </table>
+
+    <input type="button" class='demo-button' value="Add Items" id="addItemsButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display04"></script>
+    Result:
+    <div class="results" id="addItemsResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo05"></a>
+  <h4 class='title'>Estimate shipping for a cart</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      If there is no address information, shipping is estimated from the center of the US. We'll add some info though to
+      get some better prices. This is a long running query (several seconds). It takes time to ping FedEx and UPS for
+      rates.
+    </div>
+    <input type="button" class='demo-button' value="Estimate Shipping" id="estimateShippingButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display05"></script>
+    Result:
+    <div class="results" id="estimateShippingResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo06"></a>
+  <h4 class='title'>Checkout (End Step)</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      I'm doing this in one fell swoop. I'm creating my cart object and calling checkout. That's not recommended,
+      but it does keep this example short. In a normal checkout process, you would see getCart &rarr;
+      updateCart &rarr; validate &rarr; checkout.
+      <br/>
+      The cart values I've chosen are not the bare minimum nor the maximum. It's the bare minimum and a few others
+      I find interesting. See the docs for the required fields.
+      <br/>
+      <strong style='color:red'>Note: calling checkout is NOT the last step.  It is the beginning of the end.
+        You must redirect the customer's browser to the checkoutResponse.redirectToUrl (if there are no cart.errors).</strong>
+
+    </div>
+    <input type="button" class='demo-button' value="Checkout" id="checkoutButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display06"></script>
+    Result:
+    <div class="results" id="checkoutResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo07"></a>
+<h4 class='title'>Validation</h4>
+
+<div class='details'>
+
+<div class='comments'>
+  Here's an interactive validation procedure. The fields below are filling in (most incorrectly). Not all the
+  validation options are listed below. Some of the validations didn't make for good demonstrations -- too complex.
+  UltraCart has *a lot* of validations available.<br/>Change the fields and select which validation options to apply.
+  Then validate!
+</div>
+<input type="button" class='demo-button' value="Validate" id="validateButton"/>
+
+<div class='form-fields'>
+
+</div>
+
+<div class='validation-fields'>
+  <table class='address-fields'>
+    <tr>
+      <td>
+
+        <table>
+          <tr>
+            <th colspan='2'>Billing Address Fields</th>
+          </tr>
+          <tr>
+            <td class='left_label'>First Name:</td>
+            <td><input type='text' size='30' maxlength='30' name='billToFirstName'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Last Name:</td>
+            <td><input type='text' size='30' maxlength='30' name='billToLastName'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Company:</td>
+            <td><input type='text' size='30' maxlength='50' name='billToCompany'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Address 1:</td>
+            <td><input type='text' size='30' maxlength='50' name='billToAddress1'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Address 2:</td>
+            <td><input type='text' size='30' maxlength='50' name='billToAddress2'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>City:</td>
+            <td><input type='text' size='30' maxlength='32' name='billToCity'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>State:</td>
+            <td><input type='text' size='30' maxlength='32' name='billToState'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Zip:</td>
+            <td><input type='text' size='20' maxlength='20' name='billToPostalCode'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Country:</td>
+            <td><input type='text' size='25' maxlength='25' name='billToCountry'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Day Phone:</td>
+            <td><input type='text' size='25' maxlength='25' name='billToDayPhone'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Evening Phone:</td>
+            <td><input type='text' size='25' maxlength='25' name='billToEveningPhone'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Email:</td>
+            <td><input type='text' size='30' maxlength='100' name='email'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Advertising Source:</td>
+            <td><input type='text' size='30' maxlength='100' name='advertisingSource'/></td>
+          </tr>
+        </table>
+      </td>
+      <td>
+        <table>
+          <tr>
+            <th colspan='2'>Shipping Address Fields</th>
+          </tr>
+          <tr>
+            <td class='left_label'>First Name:</td>
+            <td><input type='text' size='30' maxlength='30' name='shipToFirstName'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Last Name:</td>
+            <td><input type='text' size='30' maxlength='30' name='shipToLastName'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Company:</td>
+            <td><input type='text' size='30' maxlength='50' name='shipToCompany'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Address 1:</td>
+            <td><input type='text' size='30' maxlength='50' name='shipToAddress1'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Address 2:</td>
+            <td><input type='text' size='30' maxlength='50' name='shipToAddress2'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>City:</td>
+            <td><input type='text' size='30' maxlength='32' name='shipToCity'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>State:</td>
+            <td><input type='text' size='30' maxlength='32' name='shipToState'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Zip:</td>
+            <td><input type='text' size='20' maxlength='20' name='shipToPostalCode'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Country:</td>
+            <td><input type='text' size='25' maxlength='25' name='shipToCountry'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Day Phone:</td>
+            <td><input type='text' size='25' maxlength='25' name='shipToPhone'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Evening Phone:</td>
+            <td><input type='text' size='25' maxlength='25' name='shipToEveningPhone'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Shipping Method:</td>
+            <td><input type='text' size='30' maxlength='100' name='shippingMethod'/></td>
+          </tr>
+          <tr>
+            <td class='left_label'>Payment Method:</td>
+            <td><input type='text' size='30' maxlength='100' name='paymentMethod'/></td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+
+  </table>
+</div>
+
+<div class='validation-options'>
+  <table class='validation-options-table' summary='validation options'>
+    <tr>
+      <td>&nbsp;</td>
+      <td>Validation</td>
+      <td>Description</td>
+    </tr>
+
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Billing Address Provided'></td>
+      <td>Billing Address Provided</td>
+      <td>looks for empty fields</td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Billing State Abbreviation Valid'></td>
+      <td>Billing State Abbreviation Valid</td>
+      <td>You must supply a country for to validate state. Put 'United States' in the country to test this.</td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Billing Phone Numbers Provided'></td>
+      <td>Billing Phone Numbers Provided</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Email provided if required'></td>
+      <td>Email provided if required</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Billing Validate City State Zip'></td>
+      <td>Billing Validate City State Zip</td>
+      <td>makes sure the zip is right for the given city/state</td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Shipping Method Provided'></td>
+      <td>Shipping Method Provided</td>
+      <td>look at the shipping estimates demo above for valid names. "FedEx: 2-Day" should usually work.</td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Advertising Source Provided'></td>
+      <td>Advertising Source Provided</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Shipping Address Provided'></td>
+      <td>Shipping Address Provided</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Shipping Validate City State Zip'></td>
+      <td>Shipping Validate City State Zip</td>
+      <td>makes sure the zip is right for the given city/state</td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Shipping State Abbreviation Valid'></td>
+      <td>Shipping State Abbreviation Valid</td>
+      <td>You must supply a country for to validate state. Put 'United States' in the country to test this.</td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='Payment Method Provided'></td>
+      <td>Payment Method Provided</td>
+      <td>try "Credit Card", or make up an invalid one.</td>
+    </tr>
+    <tr>
+      <td><input class='validation-checkbox' type='checkbox' value='All'></td>
+      <td>All</td>
+      <td>'All' includes all validations, not just the ones shown here.</td>
+    </tr>
+
+
+  </table>
+</div>
+
+<script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display07"></script>
+Result:
+<div class="results" id="validateResults"></div>
+</div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo08"></a>
+  <h4 class='title'>Setting finalizeAfter (and clearing it)</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      The finalizeAfter marks a cart for completion after a certain amount of time. This feature is
+      used instead of a normal checkout when "upsell after" screens are in play. With upsells, there
+      is always a chance the customer will leave without finishing an upsell gauntlet. To ensure the sale
+      is captures, all information is collected, and setFinalizeAfter is called. Once called, additional
+      upsell screens may be shown and changes to the cart continue (adding product, etc) without fear of
+      losing the sale. clearFinalizeAfter is used to remove the deadline, allowing a cart to expire.
+      <br/><br/>
+      Normally, this is done with a fully comlete cart. For the sake of the demonstration, I'll be using
+      an empty cart. Note however, the cart must exist on the server. You cannot finalize a new cart.
+    </div>
+    <input type="button" class='demo-button' value="Set finalizeAfter" id="finalizeAfterButton"/>
+    <input type="button" class='demo-button' value="Clear finalizeAfter" id="finalizeClearButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display08"></script>
+    Result:
+    <div class="results" id="finalizeResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo09"></a>
+  <h4 class='title'>Customer Profiles: Register, Login, Logout, Forgot Password</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      To run this demonstration, you'll need to create your own customer profile.
+      You may use any email address, real or otherwise. However, you can only see the email from the
+      Forgot Password feature using a valid email address.<br/>
+      <strong>After logging in, note the customerProfile object in the cart, as well as cart.loggedIn property</strong>
+    </div>
+    <div class='customer-section'>
+      <div class='step'>Step 1: Register</div>
+      <div><span class='label'>Email:</span><input type="text" name="email" size="30"/><br/><span class='label'>Password:</span><input
+          type="text" name="password" size="10"/><br/><input type="button" value="Register" id="registerButton"/></div>
+      <div class='step'>Step 2: Logout (Register logs you in)</div>
+      <div><input type="button" value="Logout" id="logoutButton"/></div>
+      <div class='step'>Step 3: Login Again (Try using incorrect credentials first)</div>
+      <div><span class='label'>Email:</span><input type="text" name="email2" size="30"/><br/><span class='label'>Password:</span><input
+          type="text" name="password2" size="10"/><br/><input type="button" value="Login" id="loginButton"/></div>
+      <div class='step'>Step 4: Forgot Password</div>
+      <div><span class='label'>Email:</span><input type="text" name="email3" size="30"/><br/><input type="button"
+                                                                                                    value="Reset Password"
+                                                                                                    id="resetPasswordButton"/>
+      </div>
+    </div>
+
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display09"></script>
+    Result:
+    <div class="results" id="customerResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo10"></a>
+  <h4 class='title'>Checkout Terms</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      The checkout terms are not part of the normal cart. Some merchants have *extremely* long checkout terms and we
+      don't want to pass those back and forth 20 times during a cart checkout. However, the terms are based on the
+      items orders, so we still need to pass in a valid cart with some items to get the terms back.<br/>
+      <em>Admittedly, the terms for the DEMO account appear rather brief with just 'test'...</em>
+    </div>
+    <input type="button" class='demo-button' value="Get Checkout Terms" id="checkoutTermsButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display10"></script>
+    Result:
+    <div class="results" id="checkoutTermsResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo11"></a>
+  <h4 class='title'>Related Items</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Related items are configured by the merchant on the back end. For this call, you pass in the cart,
+      and all the related items are returned. These are usually displayed at the bottom of a view cart page
+      enticing customers to purchase additional products.
+    </div>
+    <input type="button" class='demo-button' value="Get Related Items" id="relatedItemsButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display11"></script>
+    Result:
+    <div class="results" id="relatedItemsResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo12"></a>
+  <h4 class='title'>City State lookup</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Pass in a zip code and the city and state are looked up for your. Great for proactive address validation.
+    </div>
+    <input type="button" class='demo-button' value="Lookup City and State" id="cityStateButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display12"></script>
+    Result:
+    <div class="results" id="cityStateResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo13"></a>
+  <h4 class='title'>Finalize Order (End Step - SERVER SIDE ONLY. NO BROWSERS. NO JAVASCRIPT)</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      <span style="font-weight: bold; color:red">NEVER, EVER, EVER MAKE THIS CALL USING JAVASCRIPT.  THIS IS A SERVER SIDE CALL ONLY.</span><br/>
+      We're not kidding. This call requires credentials - UltraCart login credentials. If you put those credits on the
+      client side,<br/>
+      you deserve the vicious evil that will be visited upon you when they are discovered. And they will be easily
+      discovered. Stupid should hurt. Making this call from a browser *is* stupid.<br/>
+      <span style="font-weight: bold; color:red">NEVER, EVER, EVER MAKE THIS CALL USING JAVASCRIPT.  THIS IS A SERVER SIDE CALL ONLY.</span><br/>
+      <br/>
+      Okay, now that we're clear you're only still reading this because you're writing a php server side script...<br/>
+      The request requires three things: 1) cart, 2) credentials (merchantid, username, password), and 3) options.<br/>
+      Options are optional. They wouldn't be options if they weren't right? They discussed in the docs page. Search for
+      FinalizeOrderOptions.<br/>
+      For credentials, please please please create a user that *only* has API Access, then restrict that user to an IP
+      Address (also on Edit User page).<br/>
+      Again, using your main login or owner account to make API calls is beyond ill-advised. It also falls under the
+      stupid category. Don't.<br/>
+      <br/>
+
+
+    </div>
+    <input type="button" class='demo-button' value="Finalize Order" id="finalizeOrderButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display13"></script>
+    Result:
+    <div class="results" id="finalizeOrderResults"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo14"></a>
+  <h4 class='title'>Get State Provinces</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Comments: This is a convenience function to retrieve all configured states for a country.
+      It just avoids having to hard code a bunch of states in an application. If you're just shipping to the US,
+      this call doesn't make sense. However, if you ship internationally, this call can be very handy to populate
+      a state/province field with the correct values dynamically whenever the country field changes from (example)
+      United States to Canada.
+    </div>
+    Country: <input type="text" id="stateProvincesCountry" value="United States"/>
+    <input type="button" class='demo-button' value="Get States/Provinces" id="stateProvincesButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display14"></script>
+    Result:
+    <div class="results" id="stateProvincesResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo15"></a>
+  <h4 class='title'>Get State Province Codes</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Comments: Much like stateProvinces (above), but returns back codes instead of long names
+    </div>
+    Country: <input type="text" id="stateProvinceCodesCountry" value="United States"/>
+    <input type="button" class='demo-button' value="Get States/Provinces" id="stateProvinceCodesButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display15"></script>
+    Result:
+    <div class="results" id="stateProvinceCodesResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo16"></a>
+  <h4 class='title'>Unified Affiliate Cookie Script</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      If you use affiliates, this call returns back a script that you can attach to your web page and run.
+      It will set the necessary cookies to track your affiliates across multiple domains.
+    </div>
+    <input type="button" class='demo-button' value="Get Script" id="unifiedAffiliateCookieScriptButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display16"></script>
+    Result:
+    <div class="results" id="unifiedAffiliateCookieScriptResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo17"></a>
+  <h4 class='title'>Advertising Sources</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Returns back a string array of all the advertising sources configured for a merchant (and theme code).
+      This is almost always used to populate the "Where did you hear from us?" dropdown box on a checkout page.
+    </div>
+    <input type="button" class='demo-button' value="Get Advertising Sources" id="advertisingButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display17"></script>
+    Result:
+    <div class="results" id="advertisingResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo18"></a>
+  <h4 class='title'>Return Policy</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Fetches a merchant's return policy. Some of you guys have massive return policies, especially
+      anyone selling an digestible product. We don't want to carry that back and forth with every
+      call, so we don't attach it to the cart object. It's separate. You'll probably fetch it once
+      and store it somewhere. localStorage is a great idea...
+    </div>
+    <input type="button" class='demo-button' value="Get Return Policy" id="returnPolicyButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display18"></script>
+    Result:
+    <div class="results" id="returnPolicyResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo19"></a>
+  <h4 class='title'>Allowed Countries</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Fetches an array of all the countries a merchant will ship to.
+    </div>
+    <input type="button" class='demo-button' value="Get Allowed Countries" id="allowedCountriesButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display19"></script>
+    Result:
+    <div class="results" id="allowedCountriesResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo20"></a>
+  <h4 class='title'>Customer IP Address</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Pings back the customer's ip address. Helpful since you can't get this in javascript. Get the ip address
+      and set it on the customer's cart.
+    </div>
+    <input type="button" class='demo-button' value="Get Allowed Countries" id="customerIpAddressButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display20"></script>
+    Result:
+    <div class="results" id="customerIpAddressResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo21"></a>
+  <h4 class='title'>Item Search</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Searches for items based on the provided search string. This searches item ids, descriptions, and item attributes.
+      The secureServerName variable is only needed for the view links (the link to view each item). You'll want to
+      set this to your web site so any returned urls are ready to go.<br>
+      <br>
+      itemsPerPage and currentPage are optional and have defaults.
+    </div>
+
+
+    Merchant ID: <input type="text" id="itemSearchMerchantId" value='DEMO'/><br>
+    Search Term: <input type="text" id="itemSearchField" value='BONE'/><br>
+    <input type="button" class='demo-button' value="Search for Items" id="itemSearchButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display21"></script>
+    Result:
+    <div class="results" id="itemSearchResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo22"></a>
+  <h4 class='title'>Items</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Accepts a parameter array of item ids OR a catalog group url, and returns back a list of item objects.<br>
+      See: <a href="http://docs.ultracart.com/display/ucdoc/Groups+-+Catalog">http://docs.ultracart.com/display/ucdoc/Groups+-+Catalog</a><br>
+      In brief, a catalog group is a url with path (i.e. https://secure.ultracart.com/catalog/DEMO/products/facebook/)
+      that maps to a list of items. It's a <br>
+      way to group your items for easy retrieval. You can also then update your items without having to change a bunch
+      of web code.
+      <br>
+      Which should you use? Catalog Groups. Okay, there's a learning curve there. But it's worth it.<br>
+      If you submit both a list of items and a url, the url wins and those items are returned. The rest call does not
+      combine the two.
+
+    </div>
+
+    <em>Note: The server expects a parameter array of items, not a csv list. The javascript routine splits the string by
+      commas and creates an array.</em><br>
+    <table>
+      <tr>
+        <td>Merchant ID:</td>
+        <td><input type="text" id="itemsMerchantId" value='DEMO'/></td>
+      </tr>
+      <tr>
+        <td>Search Term:</td>
+        <td><input type="text" id="itemsField" value='BONE,PDF,Baseball,TSHIRT' size='100'/></td>
+      </tr>
+      <tr>
+        <td>Catalog Group URL:</td>
+        <td><input type="text" id="itemsUrlField" size='100'
+                   value='https://secure.ultracart.com/catalog/DEMO/rest_demo/'/></td>
+      </tr>
+      <tr>
+        <td colspan='2'>Hey. You can't just put any url in the field above. It must be a valid catalog group.</td>
+      </tr>
+    </table>
+
+
+    <input type="button" class='demo-button' value="Fetch Items" id="itemsButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display22"></script>
+    Result:
+    <div class="results" id="itemsResult"></div>
+  </div>
+
+</div>
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo23"></a>
+  <h4 class='title'>Single Item</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      Queries for a single item id and returns a single item. There are two versions of this call.
+      <ol>
+        <li>method=='get': This version returns an item with standard pricing.</li>
+        <li>method=='post': This version accepts a cart as the post payload, and if the cart has a logged in customer,
+          it returns an item with that customer's (or pricing tier's) pricing.
+        </li>
+      </ol>
+    </div>
+
+    Item Id: <input type="text" id="itemField" value='TSHIRT' size='20'/><br>
+    <input type="button" class='demo-button' value="Fetch Item" id="itemButton"/><br>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display23"></script>
+    Result:
+    <div class="results" id="itemResult"></div>
+  </div>
+
+</div>
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo24"></a>
+  <h4 class='title'>Place order using stored credit card.</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      To run this demonstration, you'll need to create your own customer profile.
+      You may use any email address, real or otherwise. <br/>
+      Notice that this example registers a customer using the MyAccount API instead of the Cart API. This must be done
+      in order to create a credit card. While both APIs accomplish the same thing, the Cart API call doesn't actually
+      create the customer until the order finishes (to reduce spam registrations). The MyAccount creates it immediately.
+      <strong>After logging in, note the customerProfile object in the cart, as well as cart.loggedIn property</strong>
+    </div>
+    <div class='stored-credit-card-section'>
+      <div><span class='label'>Email:</span><input type="text" name="email4" size="30"/>
+        <br/><span class='label'>Password:</span><input
+            type="text" name="password4" size="10"/><br/>
+        <input type="button" value="Create Order with Stored Credit Card" id="checkoutWithStoredCreditCardButton"/>
+      </div>
+    </div>
+  </div>
+
+
+  <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display24"></script>
+  Result:
+  <div class="results" id="checkoutWithStoredCreditCardResults"></div>
+</div>
+
+
+
+
+<!-- =========================================================================== -->
+<a href="#top"><img src="images/arrow-up_16x16.png" alt='top'/></a>
+
+<div class='demo'><a class='demo-link' name="demo25"></a>
+  <h4 class='title'>Checkout with Arbitrary Unit Cost</h4>
+
+  <div class='details'>
+
+    <div class='comments'>
+      This is the same example as the checkout example, except I've added an arbitraryUnitCost to the Baseball item.
+      Remember that for you to use arbitrayUnitCosts in your checkout, you must configure them in each desired item.
+      <br>
+      Home &rarr; Item Management &rarr; Items &rarr; [edit item] &rarr; [click Other tab]
+
+    </div>
+    <input type="button" class='demo-button' value="Checkout" id="checkoutWithArbitraryUnitCostButton"/>
+
+    <script type="syntaxhighlighter" class="brush: javascript" id="demo-code-display25"></script>
+    Result:
+    <div class="results" id="checkoutWithArbitraryUnitCostResults"></div>
+  </div>
+
+</div>
+
+
+
+<!-- =========================================================================== -->
+<!-- =========================================================================== -->
+<!-- =========================================================================== -->
+</div>
+
+
+
+</body>
+</html>
