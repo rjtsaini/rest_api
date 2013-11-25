@@ -252,7 +252,7 @@ ultracart.Cart = function (merchantId, restUrl, receiptHostName) {
     };
 
     jQuery.ajax({
-      url: './rest_proxy.php?_url=/rest/cart/checkout',
+      url: this.restUrl + '/cart/checkout',
       type: 'POST', // Notice
       headers: { "cache-control": "no-cache" },
       contentType: 'application/json; charset=UTF-8',
