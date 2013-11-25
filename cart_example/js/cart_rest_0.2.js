@@ -41,7 +41,7 @@ ultracart.Cart = function (merchantId, restUrl, receiptHostName) {
     var updatedCart = null;
 
     jQuery.ajax({
-      url: this.restUrl + '/register',
+      url: this.restUrl + '/cart/register',
       data: JSON.stringify(cart),
       type: 'post',
       async: (options.success || options.failure) ? true : false,
@@ -82,7 +82,7 @@ ultracart.Cart = function (merchantId, restUrl, receiptHostName) {
     var updatedCart = null;
 
     jQuery.ajax({
-      url: this.restUrl + '/login',
+      url: this.restUrl + '/cart/login',
       data: JSON.stringify(cart),
       type: 'post',
       async: (options.success || options.failure) ? true : false,
@@ -121,7 +121,7 @@ ultracart.Cart = function (merchantId, restUrl, receiptHostName) {
     var updatedCart = null;
 
     jQuery.ajax({
-      url: this.restUrl + '/logout',
+      url: this.restUrl + '/cart/logout',
       data: JSON.stringify(cart),
       type: 'post',
       async: (options.success || options.failure) ? true : false,

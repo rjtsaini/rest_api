@@ -115,7 +115,7 @@ function updateCart(collectFieldsFirst) {
     success: function (updatedCart) {
       cart = updatedCart;
       refreshCart();
-      refreshShipping();
+      estimateShipping();
     },
     failure: function (jqXHR, textStatus, errorThrown) {
       var errorMsg = jqXHR.getResponseHeader('UC-REST-ERROR');
@@ -156,8 +156,19 @@ function refreshCart() {
   // then look at the billing fields.  If any are populated, show them.
   showHide(document.getElementById('billingDifferent'), 'billToTable');
   if (cart.billToAddress1 || cart.billToAddress2 || cart.billToCity || cart.billToLastName || cart.billToFirstName || cart.billToState || cart.billToCountry || cart.billToCompany || cart.billToDayPhone) {
-    jQuery('#billingDifferent').attr('checked', true);
-    jQuery('#billToTable').show();
+    if ((cart.billToAddress1 != cart.shipToAddress1)
+            || (cart.billToAddress2 != cart.shipToAddress2)
+            || (cart.billToCity != cart.shipToCity)
+            || (cart.billToLastName != cart.shipToLastName)
+            || (cart.billToFirstName != cart.shipToFirstName)
+            || (cart.billToState != cart.shipToState)
+            || (cart.billToCountry != cart.shipToCountry)
+            || (cart.billToCompany != cart.shipToCompany)
+            || (cart.billToDayPhone != cart.shipToPhone)) {
+
+      jQuery('#billingDifferent').attr('checked', true);
+      jQuery('#billToTable').show();
+    }
   }
 
 
@@ -279,12 +290,12 @@ function refreshCart() {
 
     if (cart.hasAmazon && amazonIsReady) {
 
-      if(loggedIntoAmazon){
+      if (loggedIntoAmazon) {
         jQuery('#AmazonNote').html("<button onclick='stopUsingPayWithAmazon()'>Stop Using Pay with Amazon</button>");
       } else {
         showAmazonButton(cart.amazonButtonUrl);
         jQuery("#AmazonPayButton").show();
-        if(cart.amazonOrderReferenceId){
+        if (cart.amazonOrderReferenceId) {
           jQuery('#AmazonNote').html("<em>Please login to Amazon again to continue.</em>");
         }
       }
@@ -306,12 +317,11 @@ function refreshCart() {
 
 
   // finally, if we're in an Amazon transaction, make sure these sections are also hidden
-  if(cart.amazonOrderReferenceId != null){
+  if (cart.amazonOrderReferenceId != null) {
     jQuery('#creditCardContainer,#billingDifferentContainer,.addressSection').hide();
   } else {
     jQuery('#creditCardContainer,#billingDifferentContainer,.addressSection').show();
   }
-
 
 
   // assign popups to any popup links on the page.
@@ -388,7 +398,7 @@ function showAmazonWallet() {
 }
 
 
-function stopUsingPayWithAmazon(){
+function stopUsingPayWithAmazon() {
   cart.amazonOrderReferenceId = null;
   loggedIntoAmazon = false;
   jQuery('#AddressBookWidgetDiv,#AmazonWalletWidgetDiv,#AmazonNote').html('');
@@ -465,7 +475,7 @@ function estimateShipping() {
       shippingEstimates = availableShippingMethods;
 
       // if a shipping method hasn't been selected, select it now.  It will save grief later.
-      if(!cart.shippingMethod && shippingEstimates && shippingEstimates.length){
+      if (!cart.shippingMethod && shippingEstimates && shippingEstimates.length) {
         cart.shippingMethod = shippingEstimates[0].name;
         cart.shippingHandling = shippingEstimates[0].cost;
       }
@@ -675,9 +685,9 @@ function finalizeOrder(checkoutMethod) {
       waitDiv.scrollIntoView();
     }
 
-    if(checkoutMethod){
+    if (checkoutMethod) {
       cart.paymentMethod = checkoutMethod;
-    } else if(!cart.paymentMethod){
+    } else if (!cart.paymentMethod) {
       cart.paymentMethod = 'Credit Card';
     }
 
