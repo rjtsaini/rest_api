@@ -306,11 +306,11 @@ app.commonFunctions.useShippingAddress = function (cart, oid, shippingIsBilling)
       cart.billToAddress1 = address.address1;
       cart.billToAddress2 = address.address2;
       cart.billToCity = address.city;
-      cart.billToCompany = address.state;
+      cart.billToCompany = address.company;
       cart.billToCountry = address.country;
       cart.billToFirstName = address.firstName;
       cart.billToLastName = address.lastName;
-      cart.billToPhone = address.dayPhone;
+      cart.billDayToPhone = address.dayPhone;
       cart.billToPostalCode = address.postalCode;
       cart.billToState = address.state;
     }
@@ -350,11 +350,11 @@ app.commonFunctions.useBillingAddress = function (cart, oid) {
     cart.billToAddress1 = address.address1;
     cart.billToAddress2 = address.address2;
     cart.billToCity = address.city;
-    cart.billToCompany = address.state;
+    cart.billToCompany = address.company;
     cart.billToCountry = address.country;
     cart.billToFirstName = address.firstName;
     cart.billToLastName = address.lastName;
-    cart.billToPhone = address.dayPhone;
+    cart.billToDayPhone = address.dayPhone;
     cart.billToPostalCode = address.postalCode;
     cart.billToState = address.state;
     return true;
