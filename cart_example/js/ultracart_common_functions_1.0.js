@@ -310,7 +310,7 @@ app.commonFunctions.useShippingAddress = function (cart, oid, shippingIsBilling)
       cart.billToCountry = address.country;
       cart.billToFirstName = address.firstName;
       cart.billToLastName = address.lastName;
-      cart.billDayToPhone = address.dayPhone;
+      cart.billToDayPhone = address.dayPhone;
       cart.billToPostalCode = address.postalCode;
       cart.billToState = address.state;
     }
