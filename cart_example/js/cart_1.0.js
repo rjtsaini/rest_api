@@ -687,7 +687,9 @@ function finalizeOrder(checkoutMethod) {
 
     if (checkoutMethod) {
       cart.paymentMethod = checkoutMethod;
-    } else if (!cart.paymentMethod) {
+    }
+
+    if (!cart.paymentMethod || cart.paymentMethod == 'Unknown') {
       cart.paymentMethod = 'Credit Card';
     }
 
