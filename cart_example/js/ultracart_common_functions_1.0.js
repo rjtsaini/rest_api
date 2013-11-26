@@ -28,7 +28,7 @@ app.commonFunctions.storeCard = function (cart, callback) {
   ).done(function (data) {
             if (data.success) {
               cart.creditCardNumber = data.maskedCardNumber;
-              if(callback){
+              if (callback) {
                 callback();
               }
             }
@@ -262,5 +262,104 @@ app.commonFunctions.pretendToBeUCEditor = function (cart) {
 //  if (params.hasOwnProperty('overridecontinueshoppingurl')) {
 //    window.continueShoppingUrl = params['overridecontinueshoppingurl'];
 //  }
+
+};
+
+
+/**
+ * applies an address to a cart
+ * @param cart the cart object
+ * @param oid the address record identifier
+ * @param shippingIsBilling true if the shipping and billing are currently the same, this will populate both
+ * @return {boolean} true if the address was updated, false if not
+ */
+app.commonFunctions.useShippingAddress = function (cart, oid, shippingIsBilling) {
+
+  if (!cart || !cart.customerProfile) {
+    return false; // nothing can be done without a cart and customer profile.
+  }
+
+  var shippingAddresses = cart.customerProfile.shippingAddresses;
+  if (!shippingAddresses) return false;
+
+  var address = null;
+  for (var i = 0; i < shippingAddresses.length; i++) {
+    if (shippingAddresses[i].oid == oid) {
+      address = shippingAddresses[i];
+      break;
+    }
+  }
+
+  if (address != null) {
+    cart.shipToAddress1 = address.address1;
+    cart.shipToAddress2 = address.address2;
+    cart.shipToCity = address.city;
+    cart.shipToCompany = address.company;
+    cart.shipToCountry = address.country;
+    cart.shipToFirstName = address.firstName;
+    cart.shipToLastName = address.lastName;
+    cart.shipToPhone = address.dayPhone;
+    cart.shipToPostalCode = address.postalCode;
+    cart.shipToState = address.state;
+
+    if (shippingIsBilling) {
+      cart.billToAddress1 = address.address1;
+      cart.billToAddress2 = address.address2;
+      cart.billToCity = address.city;
+      cart.billToCompany = address.state;
+      cart.billToCountry = address.country;
+      cart.billToFirstName = address.firstName;
+      cart.billToLastName = address.lastName;
+      cart.billToPhone = address.dayPhone;
+      cart.billToPostalCode = address.postalCode;
+      cart.billToState = address.state;
+    }
+
+    return true;
+  }
+
+  return false;
+
+};
+
+
+/**
+ * applies an address to a cart
+ * @param cart the cart object
+ * @param oid the address record identifier
+ * @return {boolean} true if the address was updated, false if not
+ */
+app.commonFunctions.useBillingAddress = function (cart, oid) {
+
+  if (!cart || !cart.customerProfile) {
+    return false; // nothing can be done without a cart and customer profile.
+  }
+
+  var billingAddresses = cart.customerProfile.billingAddresses;
+  if (!billingAddresses) return false;
+
+  var address = null;
+  for (var i = 0; i < billingAddresses.length; i++) {
+    if (billingAddresses[i].oid == oid) {
+      address = billingAddresses[i];
+      break;
+    }
+  }
+
+  if (address != null) {
+    cart.billToAddress1 = address.address1;
+    cart.billToAddress2 = address.address2;
+    cart.billToCity = address.city;
+    cart.billToCompany = address.state;
+    cart.billToCountry = address.country;
+    cart.billToFirstName = address.firstName;
+    cart.billToLastName = address.lastName;
+    cart.billToPhone = address.dayPhone;
+    cart.billToPostalCode = address.postalCode;
+    cart.billToState = address.state;
+    return true;
+  }
+
+  return false;
 
 };
