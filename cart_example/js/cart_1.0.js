@@ -698,6 +698,7 @@ function finalizeOrder(checkoutMethod) {
     restWrapper.checkout(cart, {
       success: function (checkoutResponse) {
         if (checkoutResponse.redirectToUrl) {
+          finalizing = false;
           location.href = checkoutResponse.redirectToUrl;
         } else if (checkoutResponse.errors) {
           finalizing = false;
@@ -713,6 +714,7 @@ function finalizeOrder(checkoutMethod) {
         if (errorMsg) {
           renderErrors([errorMsg]);
         }
+        finalizing = false;
       }
     });
 
