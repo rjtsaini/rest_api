@@ -505,7 +505,22 @@ function refreshShipping() {
   if (shippingEstimates && shippingEstimates.length) {
     // the shipping estimate object works without modification for our shipping estimate template,
     // so instead of create a copy of the array, I'll just use the estimates directly in the template.
-    html = templates.shippingMethods({'shippingMethods': shippingEstimates});
+
+    // we're making a copy of the shippingEstimates to format the cost.
+    var shippingMethods = [];
+    if (shippingEstimates) {
+      for (var i = 0; i < shippingEstimates.length; i++) {
+        var estimateClone = {};
+        jQuery.extend(estimateClone, shippingEstimates[i]);
+        if (estimateClone) {
+          estimateClone.cost = accounting.formatMoney(estimateClone.cost);
+          shippingMethods.push(estimateClone);
+        }
+      }
+    }
+
+
+    html = templates.shippingMethods({'shippingMethods': shippingMethods});
   }
 
   jQuery('#shippingMethods').html(html).bind('click.ultraCart', chooseShipping);
