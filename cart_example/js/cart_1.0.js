@@ -678,8 +678,17 @@ function renderErrors(errors) {
 function handleCheckoutErrors() {
 
   var params = app.commonFunctions.parseHttpParameters();
-  var serverErrors = params['ucError'];
-  renderErrors(serverErrors);
+  var serverErrors = params['error'];
+  // look to remove any plus signs used to represent spaces (should be %20, but it is what it is)
+  if(serverErrors && serverErrors.length){
+    for(var i = 0; i < serverErrors.length; i++){
+      if(serverErrors[i].indexOf('+') > -1){
+        serverErrors[i] = serverErrors[i].replace(/\+/g, ' ');
+      }
+    }
+    renderErrors(serverErrors);
+  }
+
 }
 
 

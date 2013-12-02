@@ -431,3 +431,7 @@ body{
 .ucSmall {
     font-size: 10px;
 }
+
+#comments{
+  width:100%;
+}
