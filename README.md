@@ -12,7 +12,7 @@ See the UltraCart project "responsive_checkout" for a mobile friendly, advanced 
 
 
 #### Version 1.1
-* PCI 3.0 Compliant.  Added support for UltraCart Hosted Fields in the cart_example. See: http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance
+* PCI 3.0 Compliant.  Added support for UltraCart Hosted Fields in the cart_example. See: http://docs.ultracart.com/display/ucdoc/UltraCart+Hosted+Credit+Card+Fields
 * Added localization.  Removed hard coded dollar signs.  Checkout is now easy to use with other currencies
 * Updated jQuery and JSON to latest versions to support PCI changes.
 * Disabled two demo examples in the call_examples tree.  These are the checkout and finalizeOrder examples.  Although
