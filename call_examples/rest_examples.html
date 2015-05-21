@@ -13,8 +13,8 @@
 <!--[if IE]>
 <script type='text/javascript' src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
 <![endif]-->
-<script type="text/javascript" src="js/json2.js"></script>
-<script type="text/javascript" src="js/jquery-1.8.3.js"></script>
+<script type="text/javascript" src="js/json3.min.js"></script>
+<script type="text/javascript" src="js/jquery-1.11.3.min.js"></script>
 <script type="text/javascript" src="js/jquery.cookie.js"></script>
 <script type="text/javascript" src="js/shCore.js"></script>
 <!-- syntax highlighting -->
@@ -239,156 +239,17 @@
 <!-- =========================================================================== -->
 <script type="text/javascript" class='demo-code-block' id="demo-code-block06">
 
-  // assumes a proper card number has been entered.  the error handling is
-  // commented out for this example.  normally (see docs.ultracart.com article listed below),
-  // this method would fire upon textfield blur event, so it contains short circuit logic
-  // to exit if the upload isn't needed.
-  function storeCard(cart, callback) {
-
-    // Extract the card number from the field
-    var cardNumber = cart.creditCardNumber;
-
-    // If they haven't specified 15 digits yet then don't store it.
-//    if (cardNumber.replace(/[^0-9]/g,"").length < 15) {
-//      cart.cardNumber = cardNumber;
-//      return;
-//    }
-
-    // Create a masked version of the card number and update the client field
-    var maskedCardNumber = cardNumber;
-    for (var i = 0; i < 12; i++) {
-      maskedCardNumber = maskedCardNumber.replace(/[0-9]/, 'X');
-    }
-
-    // Store the masked one on the cart object to make sure a full card number doesn't go up.
-    cart.cardNumber = maskedCardNumber;
-    // Update the form as well
-//    jQuery("#cardNumberId").val(maskedCardNumber);
-
-    // Perform the JSONP request to store it (asynchronous by nature)
-    jQuery.getJSON('https://token.ultracart.com/cgi-bin/UCCheckoutAPICardStore?callback=?',
-        {
-          merchantId: cart.merchantId,
-          shoppingCartId: cart.cartId,
-          cardNumber: cardNumber
-        }
-    ).done(function (data) {
-          if (data.success) {
-            callback(cart);
-
-          } else {
-            console.log("something failed with the card number storage (shouldn't ever happen).  in production, you would have a callback to handle this.");
-          }
-        });
-  }
-
-
   function checkout() {
-    var cart = {
-      'merchantId': 'DEMO',
-      'cartId': '', // will be populated by call
 
-      "customField1": 'blah blah blah',
-      "customField2": 'perhaps an affiliate id here?',
-      "coupons": [
-        {couponCode: '10OFF'}
-      ], // here is a coupon for $10 off the order
-      "advertisingSource": "Radio",
-      "screenBrandingThemeCode": "CSTM", // The demo account has a second them set up using the code CSTM
-      "shippingMethod": "FedEx: 2-Day",
-      "shipToFirstName": "Testy",
-      "shipToLastName": "Testerson",
-      "shipToTitle": "Sir",
-      "shipToCompany": "Ultra Trains",
-      "shipToAddress1": "55 Main Street",
-      "shipToAddress2": "Suite 101",
-      "shipToCity": "Duluth",
-      "shipToState": "GA",
-      "shipToPostalCode": "30097",
-      "shipToCountry": "United States",
-      "shipToPhone": "555-555-1212",
-      "shipToEveningPhone": "5555553434", // notice the different format?
-      "billToDayPhone": "555-555-1212",
-      "billToEveningPhone": "5555551212",
-      "billToFirstName": "Smith",
-      "billToLastName": "Joe",
-      "billToTitle": "Chief",
-      "billToCompany": "Widgets, INC",
-      "billToAddress1": "2000 Montana Dr",
-      "billToAddress2": "",
-      "billToCity": "Duluth",
-      "billToState": "GA",
-      "billToPostalCode": "30097",
-      "billToCountry": "United States",
-      "email": "test@test.com",
-      "emailConfirm": "test@test.com",
-      "paymentMethod": "Credit Card",
-      "creditCardType": "VISA",
-      "creditCardNumber": "4444333322221111",
-      "creditCardExpirationMonth": 12,
-      "creditCardExpirationYear": 2028,
-      "creditCardVerificationNumber": "123",
-      'items': [
-        {'itemId': 'PDF', 'quantity': 1},
-        {'itemId': 'Baseball', 'quantity': 2},
-        {'itemId': 'BONE', 'quantity': 5}
-      ]
-    };
+    var html = "The checkout() method used to be here.  It was removed.  Because of PCI 3.0, the credit card number must be collected using UltraCart Hosted Fields.<br>";
+    html += "This is easy to implement in a normal checkout, but cannot be shown in an easy example because it makes use of iframes and window-to-window communication.<br>";
+    html += "Please see <a href='http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance'>UltraCart PCI 3.0 Compliance</a> for more details.<br>";
+    html += "If you wish to see Hosted Fields in action, as well as a checkout example, please see the cart_example within the rest_api project.<br>";
+    html += "The cart_example may be found here: <a href='https://github.com/UltraCart/rest_api/tree/master/cart_example'>https://github.com/UltraCart/rest_api/tree/master/cart_example</a>.";
 
-
-    // STEP 1: Update the cart (create a cart, and (most importantly for the cc update) a cart id.
-    jQuery.ajax({
-      url: './rest_proxy.php?_url=/rest/cart',
-      type: 'PUT', // Notice
-      headers: { "cache-control": "no-cache" },
-      contentType: 'application/json; charset=UTF-8',
-      data: JSON.stringify(cart),
-      dataType: 'json'
-    }).done(function (updatedCart) {
-
-          //  STEP 2: Upload the credit card number
-          storeCard(updatedCart, checkoutFunc);
-
-        });
-
-    // STEP 3: call the checkout method.  This function is passed to storeCard as a callback.
-    function checkoutFunc(cartWithUploadedCardNumber) {
-      // Notice: The checkout call does not take a cart.  It takes a CheckoutRequest which contains a cart.
-      // Since the checkout process hands of to UltraCart to handle upsells, etc., we must also provide the
-      // return point.
-      var checkoutRequest = {
-        'cart': cartWithUploadedCardNumber,
-        errorParameterName: 'error', // if there are errors after the handoff, the redirect page will receive those errors using this http parameter
-        errorReturnUrl: document.URL, // this same page.
-        secureHostName: null // can be null.  defaults to secure.ultracart.com if null.  could also be www.mystore.com if that was your url.
-        // the secureHostName is where the checkout finishes on (receipt).  many merchants have dozens of sites.  So, if this isn't secure.ultracart and
-        // you have more than one, you must specify it.
-      };
-
-
-      jQuery.ajax({
-        url: './rest_proxy.php?_url=/rest/cart/checkout',
-        type: 'POST', // Notice
-        headers: { "cache-control": "no-cache" },
-        contentType: 'application/json; charset=UTF-8',
-        data: JSON.stringify(checkoutRequest),
-        dataType: 'json'
-      }).done(function (checkoutResult) {
-
-
-            var txt = JSON.stringify(checkoutResult, null, '  ');
-            var pre = jQuery('<pre>');
-            pre.text(txt);
-
-            var resultsDiv = jQuery('#checkoutResults');
-            if (checkoutResult && checkoutResult.redirectToUrl) {
-              resultsDiv.append("<div><a target='_blank' href='" + checkoutResult.redirectToUrl + " '>" + checkoutResult.redirectToUrl + "</a></div>");
-            }
-            resultsDiv.html('').append(pre);
-          });
-    }
+    var resultsDiv = jQuery('#checkoutResults');
+    resultsDiv.html(html);
   }
-
 
   jQuery(document).ready(function () {
     jQuery('#checkoutButton').on('click', checkout);
@@ -790,6 +651,10 @@
 
 <!-- =========================================================================== -->
 <script type="text/javascript" class='demo-code-block' id="demo-code-block13">
+  function finalizeOrderNotice(){
+    alert('Sorry.  This example no longer works as originally written.  See the notes above this button.');
+  }
+
   function finalizeOrder() {
     var cart = {
       'merchantId': 'DEMO',
@@ -886,7 +751,7 @@
   }
 
   jQuery(document).ready(function () {
-    jQuery('#finalizeOrderButton').on('click', finalizeOrder);
+    jQuery('#finalizeOrderButton').on('click', finalizeOrderNotice);
   });
 </script>
 
@@ -1159,7 +1024,7 @@
 
     // here are the steps
     // create an account
-    // add a stored credit card
+    // add a stored credit card  <== THIS IS GOING TO CHANGE SHORTLY DUE TO PCI3.0.  DO NOT USE THIS METHOD.
     // place an order using the stored credit card.
 
     // see myaccount_rest_1.0.js for the details of the myAccount object.
@@ -1191,6 +1056,8 @@
         cardNumber: '4444333322221111'
       };
 
+      // NOTE: THIS FEATURE WILL BE DISABLED ANY DAY.  CREDIT CARD INFORMATION WILL ONLY BE ACCEPTED THROUGH
+      // UltraCart Hosted Fields.  See http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance for details.
       ultracart.myAccount.insertCreditCard(creditCard, {success: function (result) {
 
         creditCard = result; // creditCard now has the credit card oid (and the card number is now masked).
@@ -1238,15 +1105,8 @@
           "email": "test@test.com",
           "emailConfirm": "test@test.com",
           "paymentMethod": "Credit Card",
-//          "creditCardType": "VISA",
-//          "creditCardNumber": "4444333322221111",
-//          "creditCardExpirationMonth": 12,
-//          "creditCardExpirationYear": 2028,
-
           // Note: stored credit cards do store save the CVV.  Against the rules.
           // If you're going to allow stored credit cards, you must turn off the requirement for CVV, or have the user enter that each time.
-          // For this example to work with our demo account, I'm just going to supply it here.
-          "creditCardVerificationNumber": "123",
           "customerProfileCreditCardId": creditCard.id,
           'items': [
             {'itemId': 'PDF', 'quantity': 1},
@@ -1572,22 +1432,8 @@
   <div class='details'>
 
     <div class='comments'>
-      <em>Note: As of February 2014, this can no longer be done in one call. The credit card number must be
-        supplied to token.ultracart.com and then the checkout call made. Please see
-        <a href="http://docs.ultracart.com/display/ucdoc/Collecting+Credit+Card+Numbers+with+Rest+API">http://docs.ultracart.com/display/ucdoc/Collecting+Credit+Card+Numbers+with+Rest+API</a>
-        for details.</em>
-
-      <span style="text-decoration: line-through">I'm doing this in one fell swoop.</span>
-      The first thing I'm doing is creating a cart object. I then upload the credit card number, and finally call
-      checkout.
-      <br/>
-      The cart values I've chosen are not the bare minimum nor the maximum. It's the bare minimum and a few others
-      I find interesting. See the docs for the required fields.
-      <br/>
-      <strong style='color:red'>Note: calling checkout is NOT the last step. It is the beginning of the end.
-        You must redirect the customer's browser to the checkoutResponse.redirectToUrl (if there are no
-        cart.errors).</strong>
-
+      <em>Note: As of June 2015, this can no longer be done in one or two calls. The credit card number must be
+        supplied to token.ultracart.com through <a href="http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance">UltraCart Hosted Fields</a> and then the checkout call made.</em>
     </div>
     <input type="button" class='demo-button' value="Checkout" id="checkoutButton"/>
 
@@ -1976,8 +1822,7 @@ Result:
     <div class='comments'>
       <span style="font-weight: bold; color:red">NEVER, EVER, EVER MAKE THIS CALL USING JAVASCRIPT.  THIS IS A SERVER SIDE CALL ONLY.</span><br/>
       We're not kidding. This call requires credentials - UltraCart login credentials. If you put those credits on the
-      client side,<br/>
-      you deserve the vicious evil that will be visited upon you when they are discovered. And they will be easily
+      client side,<br/> you deserve the vicious evil that will be visited upon you when they are discovered. And they will be easily
       discovered. Stupid should hurt. Making this call from a browser *is* stupid.<br/>
       <span style="font-weight: bold; color:red">NEVER, EVER, EVER MAKE THIS CALL USING JAVASCRIPT.  THIS IS A SERVER SIDE CALL ONLY.</span><br/>
       <br/>
@@ -1989,6 +1834,11 @@ Result:
       Address (also on Edit User page).<br/>
       Again, using your main login or owner account to make API calls is beyond ill-advised. It also falls under the
       stupid category. Don't.<br/>
+      <br/>
+
+      <span style="font-weight: bold; color:red">Also, you CANNOT supply a credit card number like this example does.  You must use UltraCart Hosted Fields.</span>
+      See <a href="http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance">http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance</a> for details.<br>
+      See <a href='https://github.com/UltraCart/rest_api/tree/master/cart_example'>https://github.com/UltraCart/rest_api/tree/master/cart_example</a> for an example.<br>
       <br/>
 
 

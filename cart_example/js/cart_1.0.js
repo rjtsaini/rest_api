@@ -23,22 +23,6 @@ templates.coupons = null;
 templates.shippingMethods = null;
 
 
-//See http://josscrowcroft.github.com/accounting.js/ for documentation
-accounting.settings = {
-  currency: {
-    symbol: "$",   // default currency symbol is '$'
-    format: "%s%v", // controls output: %s = symbol, %v = value/number (can be object: see below)
-    decimal: ".",  // decimal point separator
-    thousand: ",",  // thousands separator
-    precision: 2   // decimal places
-  },
-  number: {
-    precision: 0,  // default precision on numbers is 0
-    thousand: ",",
-    decimal: "."
-  }
-};
-
 // Demo Instructions
 // Items to Add: BONE, TSHIRT, PDF, item, P0975
 // Invalid Items (try): INVALIDITEM
@@ -129,6 +113,11 @@ function updateCart(collectFieldsFirst) {
 
 function refreshCart() {
 
+  // Destroy any hosted fields (will re-enable at the end)
+  if(window.teardownSecureCreditCardFields){
+    window.teardownSecureCreditCardFields();
+  }
+
   // ------------------------------------------------------------
   // Overall Cart Visibility
 
@@ -190,7 +179,7 @@ function refreshCart() {
     var items = [];
     for (var i = 0; i < cartItems.length; i++) {
       var item = {};
-      item.amount = accounting.formatMoney((cartItems[i].quantity * cartItems[i].unitCostWithDiscount));
+      item.amount = cartItems[i].totalCostWithDiscountLocalizedFormatted;
       item.image = getCartItemImg(cartItems[i]);
       item.itemId = cartItems[i].itemId;
       item.quantity = cartItems[i].quantity;
@@ -238,12 +227,12 @@ function refreshCart() {
       jQuery('#discount1').hide();
       jQuery('#discount_label1').hide();
     } else {
-      jQuery('#subtotal1').show().html(accounting.formatMoney(cart.subtotal));
+      jQuery('#subtotal1').show().html(cart.subtotalLocalizedFormatted);
       jQuery('#subtotal_label1').show();
-      jQuery('#discount1').show().html(accounting.formatMoney(cart.subtotalDiscount));
+      jQuery('#discount1').show().html(cart.subtotalDiscountLocalizedFormatted);
       jQuery('#discount_label1').show();
     }
-    jQuery('#subtotal2').html(accounting.formatMoney(cart.subtotalWithDiscount));
+    jQuery('#subtotal2').html(cart.subtotalWithDiscountLocalizedFormatted);
   }
 
 
@@ -321,6 +310,11 @@ function refreshCart() {
     jQuery('#creditCardContainer,#billingDifferentContainer,.addressSection').hide();
   } else {
     jQuery('#creditCardContainer,#billingDifferentContainer,.addressSection').show();
+
+    // Enable Hosted Fields
+    if(window.setupSecureCreditCardFields){
+      window.setupSecureCreditCardFields();
+    }
   }
 
 
@@ -439,14 +433,6 @@ function copyElementValueToCart(event) {
   var fieldName = event.target.id;
   cart[fieldName] = jQuery.trim(jQuery(event.target).val());
 
-  // if this is the credit card number, save it to UltraCart without going through the proxy.
-  // This eliminates the risk of cards being captured via a compromised server.
-  if (fieldName == 'creditCardNumber') {
-    app.commonFunctions.storeCard(cart, function () {
-      jQuery('#creditCardNumber').val(cart.creditCardNumber);
-    });
-  }
-
   if (jQuery(event.target).hasClass('affectsShippingEstimate')) {
     if (haveEnoughFieldsToEstimateShipping()) {
       estimateShipping();
@@ -513,7 +499,7 @@ function refreshShipping() {
         var estimateClone = {};
         jQuery.extend(estimateClone, shippingEstimates[i]);
         if (estimateClone) {
-          estimateClone.cost = accounting.formatMoney(estimateClone.cost);
+          estimateClone.cost = estimateClone.costLocalizedFormatted;
           shippingMethods.push(estimateClone);
         }
       }
@@ -587,26 +573,29 @@ function refreshSummary() {
   // where the price of shipping is reset.  So, when rendering, always lookup the shipping method and calculate the cost
   // from that rather than using the cart.shippingHandlingWithDiscount, although the latter would be simpler
 
-  var totalTax = cart.tax;
+  var totalTax = cart.taxLocalized;
   var shippingTotal = '&nbsp;'; // don't display anything if there's no choice
-  var total = cart.subtotalWithDiscount + cart.tax;
+  var total = cart.subtotalWithDiscountLocalized + cart.taxLocalized;
 
   var shippingChoice = getShippingChoice();
   if (shippingChoice) {
-    totalTax += shippingChoice.tax;
-    if (shippingChoice.cost == 0) {
+    totalTax += shippingChoice.taxLocalized;
+    if (shippingChoice.costLocalized == 0) {
       shippingTotal = '<strong>FREE Shipping!</strong>';
     } else {
-      shippingTotal = accounting.formatMoney(shippingChoice.cost);
+      shippingTotal = shippingChoice.costLocalizedFormatted;
     }
-    total += shippingChoice.cost;
-    total += shippingChoice.tax;
+    total += shippingChoice.costLocalized;
+    total += shippingChoice.taxLocalized;
   }
 
-  jQuery('#summarySubtotal').html("<div class='summaryLabel'>Subtotal:<\/div><div class='summaryField'>" + accounting.formatMoney(cart.subtotalWithDiscount) + "<\/div>");
-  jQuery('#summaryTax').html("<div class='summaryLabel'>Tax:<\/div><div class='summaryField'>" + (totalTax == 0 ? "<span class='tax'>No Sales Tax!</span>" : accounting.formatMoney(totalTax)) + "<\/div>");
+  var totalFormatted = app.commonFunctions.formatMoney(total, cart.currencyCode);
+  var totalTaxFormatted = app.commonFunctions.formatMoney(totalTax, cart.currencyCode);
+
+  jQuery('#summarySubtotal').html("<div class='summaryLabel'>Subtotal:<\/div><div class='summaryField'>" + cart.subtotalWithDiscountLocalizedFormatted + "<\/div>");
+  jQuery('#summaryTax').html("<div class='summaryLabel'>Tax:<\/div><div class='summaryField'>" + (totalTax == 0 ? "<span class='tax'>No Sales Tax!</span>" : totalTaxFormatted) + "<\/div>");
   jQuery('#summaryShipping').html("<div class='summaryLabel'>Shipping:<\/div><div class='summaryField'>" + shippingTotal + "<\/div>");
-  jQuery('#summaryTotal').html("<div class='summaryLabel'>Total:<\/div><div class='summaryField'>" + accounting.formatMoney(total) + "<\/div>");
+  jQuery('#summaryTotal').html("<div class='summaryLabel'>Total:<\/div><div class='summaryField'>" + totalFormatted + "<\/div>");
 }
 
 
