@@ -1,3 +1,16 @@
+#### UltraCart REST API
+Test harness for UltraCart REST API
+
+Please see docs.ultracart.com for the REST objects and calls.
+http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API
+
+The [call_examples](call_examples) folder contains examples of individual calls.
+
+The [cart_examples](cart_examples) folder contains a working example of a basic cart.
+
+See the UltraCart project "responsive_checkout" for a mobile friendly, advanced cart.
+
+
 #### Version 1.1
 * PCI 3.0 Compliant.  Added support for UltraCart Hosted Fields in the cart_example. See: http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance
 * Added localization.  Removed hard coded dollar signs.  Checkout is now easy to use with other currencies
@@ -23,16 +36,5 @@ rest_proxy.php changes:
 * Close out the curl handle sooner.
 * Add a proxy version number to the header so we can tell from the server side if people are running out of date proxy
 
-#### UltraCart REST API
-Test harness for UltraCart REST API
-
-Please see docs.ultracart.com for the REST objects and calls.
-http://docs.ultracart.com/display/ucdoc/UltraCart+REST+Checkout+API
-
-The call_examples folder contains examples of individual calls.
-
-The cart_examples folder contains a working example of a basic cart.
-
-See the UltraCart project "responsive_checkout" for a mobile friendly, advanced cart.
 
 
