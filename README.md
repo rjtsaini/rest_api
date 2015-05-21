@@ -1,5 +1,4 @@
-Version 1.1
-===========
+#### Version 1.1
 * PCI 3.0 Compliant.  Added support for UltraCart Hosted Fields in the cart_example. See: http://docs.ultracart.com/display/ucdoc/UltraCart+PCI+Compliance
 * Added localization.  Removed hard coded dollar signs.  Checkout is now easy to use with other currencies
 * Updated jQuery and JSON to latest versions to support PCI changes.
@@ -8,9 +7,7 @@ implementing Hosted Fields is easy to do to a full checkout, it's impossible to 
 in action because iframes are involved.
 
 
-Version 1.0
-===========
-
+#### Version 1.0
 Of this release, the changes in the rest_proxy.php script are most important.
 Please upgrade your rest_proxy.php scripts as soon as possible.  Doing so will prevent issues with your site.  Additionally,
 we've added a proxy version header that will allow us to track which merchants might have out of date proxy scripts in the
@@ -26,9 +23,7 @@ rest_proxy.php changes:
 * Close out the curl handle sooner.
 * Add a proxy version number to the header so we can tell from the server side if people are running out of date proxy
 
-UltraCart REST API
-==================
-
+#### UltraCart REST API
 Test harness for UltraCart REST API
 
 Please see docs.ultracart.com for the REST objects and calls.
